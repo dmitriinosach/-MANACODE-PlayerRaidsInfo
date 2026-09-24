@@ -3,7 +3,7 @@ local ADDON, ns = ...
 local strsplit, strfind, strmatch, gmatch = strsplit, string.find, string.match, string.gmatch
 local tinsert, tonumber, pairs = tinsert, tonumber, pairs
 
-local FORMAT = 10
+local FORMAT = 11
 
 function ns.Meta()
     return type(PlayerRaidsMeta) == "table" and PlayerRaidsMeta or {}
@@ -109,7 +109,11 @@ local function parseRow(id, raw)
         local key, val = strmatch(entry, "^(%a+):?(.*)$")
         if key then rec.badges[key] = val or "" end
     end
-    for i = 6, #parts do
+    rec.roleKills = {}
+    for mode, d, h, t in gmatch(parts[6] or "", "(%a+)%.(%d+)%.(%d+)%.(%d+)") do
+        rec.roleKills[mode] = { d = tonumber(d), h = tonumber(h), t = tonumber(t) }
+    end
+    for i = 7, #parts do
         if parts[i] ~= "" then tinsert(rec.seasons, parseSeason(parts[i])) end
     end
     return rec
@@ -311,7 +315,7 @@ function ns.Renames()
     local last = {}
     for id in pairs(pick) do
         tinsert(renames, id)
-        last[id] = strmatch(PlayerRaidsData[id], "^[^|]*|[^|]*|[^|]*|[^|]*|[^|]*|%d+;[^;]*;(%d*)") or ""
+        last[id] = strmatch(PlayerRaidsData[id], "^[^|]*|[^|]*|[^|]*|[^|]*|[^|]*|[^|]*|%d+;[^;]*;(%d*)") or ""
     end
     table.sort(renames, function(a, b)
         if last[a] ~= last[b] then return last[a] > last[b] end
@@ -580,4 +584,112 @@ function ns.AllSeasons(rec, list)
     end
     if all.count == 0 then return nil end
     return all
+end
+
+local benchCache = {}
+
+function ns.Bench(mode, boss)
+    local all = ns.Meta().bench
+    if type(all) ~= "table" or not mode or not boss then return nil end
+    local key = mode .. "." .. boss
+    local hit = benchCache[key]
+    if hit ~= nil then return hit or nil end
+    local out = false
+    local raw = all[key]
+    if type(raw) == "string" then
+        local c, z, h, n = strsplit("|", raw)
+        local cuts, zero, hps = {}, {}, {}
+        for v in gmatch(c or "", "[%d%.]+") do tinsert(cuts, tonumber(v)) end
+        for v in gmatch(z or "", "[%d%.]+") do tinsert(zero, tonumber(v)) end
+        for v in gmatch(h or "", "[%d%.]+") do tinsert(hps, tonumber(v)) end
+        if #cuts == 9 and #zero == 10 then
+            out = { cuts = cuts, zero = zero, hps = hps, n = tonumber(n) or 0 }
+        end
+    end
+    benchCache[key] = out
+    return out or nil
+end
+
+function ns.BenchPercent(bench, v)
+    local c = bench.cuts
+    if not v or v <= 0 then return 0 end
+    if v < c[1] then return 10 * v / c[1] end
+    for k = 1, 8 do
+        if v < c[k + 1] then return 10 * k + 10 * (v - c[k]) / math.max(c[k + 1] - c[k], 1) end
+    end
+    return math.min(90 + 10 * (v - c[9]) / math.max(c[9] - c[8], 1), 99)
+end
+
+function ns.BenchNoWipe(bench, pct)
+    local d = floor(pct / 10) + 1
+    if d < 1 then d = 1 elseif d > 10 then d = 10 end
+    return bench.zero[d]
+end
+
+local HEAL_SPECS = { holy = true, discipline = true, restoration = true }
+local TANK_SPECS = { protection = true, guardian = true }
+
+function ns.SpecRole(spec)
+    local key = string.gsub(ns.Lower(spec or ""), "[%s_%-]", "")
+    if HEAL_SPECS[key] then return "h" end
+    if TANK_SPECS[key] then return "t" end
+    return "d"
+end
+
+local function roleIn(s, mode)
+    local n = { d = 0, h = 0, t = 0 }
+    for _, raid in ipairs(s.byMode[mode] or {}) do
+        for b = 1, 3 do
+            local c = raid.cells[b]
+            if c and n[c.role] then n[c.role] = n[c.role] + 1 end
+        end
+    end
+    local best, bestN = nil, 0
+    for _, r in ipairs({ "t", "h", "d" }) do
+        if n[r] > bestN then best, bestN = r, n[r] end
+    end
+    return best
+end
+
+function ns.PrevSeason()
+    local cur, seen = ns.CurrentSeason(), false
+    for _, sn in ipairs(ns.Meta().seasons or {}) do
+        sn = tonumber(sn)
+        if seen and sn then return sn end
+        if sn == cur then seen = true end
+    end
+    return nil
+end
+
+function ns.RaidStat(rec, mode, bi)
+    local out = {}
+    if not rec then return out end
+    local cur, prev = ns.CurrentSeason(), ns.PrevSeason()
+    local blocks = { { sn = cur, s = ns.SeasonOf(rec, cur) } }
+    if prev then blocks[2] = { sn = prev, s = (ns.SeasonBlock(rec, prev)) } end
+    for _, b in ipairs(blocks) do
+        if b.s and not out.role then out.role = roleIn(b.s, mode) end
+        if b.s and not out.spec then out.spec = b.s.spec end
+    end
+    if not out.role and out.spec then out.role = ns.SpecRole(out.spec) end
+    local role = out.role or "d"
+    for _, b in ipairs(blocks) do
+        local s = b.s
+        if s then
+            local sum, n, mn = 0, 0, nil
+            for _, raid in ipairs(s.byMode[mode] or {}) do
+                local c = raid.cells[bi]
+                if c and c.value and c.role == role then
+                    sum, n = sum + c.value, n + 1
+                    if not mn or c.value < mn then mn = c.value end
+                end
+            end
+            if n > 0 then
+                out.avg, out.min, out.n = floor(sum / n + 0.5), mn, n
+                if b.sn ~= cur then out.season = b.sn end
+                return out
+            end
+        end
+    end
+    return out
 end

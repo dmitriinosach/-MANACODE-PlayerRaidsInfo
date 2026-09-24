@@ -173,6 +173,9 @@ local function fillLeft()
     if problem then
         ids = {}
         listLabel:SetText(problem)
+    elseif state.list == "raid" then
+        ids = ns.RaidIds and ns.RaidIds() or {}
+        listLabel:SetText("Состав рейда, группы 1-5: " .. #ids)
     elseif state.list == "ren" then
         local base = ns.Renames()
         local q = ns.Lower(string.match(state.search or "", "^%s*(.-)%s*$") or "")
@@ -363,9 +366,15 @@ local function renderCrest(class, shown)
     end
 end
 
-local function killLine(fs, icon, n)
-    fs:SetText(icon .. " " .. n)
+local function killLine(fs, n)
+    fs:SetText(tostring(n))
+    local a = n > 0 and 1 or 0.45
     if n > 0 then fs:SetTextColor(0.95, 0.95, 0.95) else fs:SetTextColor(0.36, 0.37, 0.4) end
+    fs.icon:SetAlpha(a)
+end
+
+local function killItemW(fs)
+    return 16 + 4 + math.floor((fs:GetStringWidth() or 12) + 0.5)
 end
 
 local function layoutKills(kw)
@@ -374,23 +383,23 @@ local function layoutKills(kw)
     for i, fs in ipairs(kt.boss) do
         if fs:IsShown() then
             nb = i
-            step = math.max(step, math.floor((fs:GetStringWidth() or 30) + 0.5))
+            step = math.max(step, killItemW(fs))
         end
     end
-    for _, fs in ipairs(kt.role) do step = math.max(step, math.floor((fs:GetStringWidth() or 30) + 0.5)) end
+    for _, fs in ipairs(kt.role) do step = math.max(step, killItemW(fs)) end
     step = step + 10
     local bossesW = math.max(nb, 1) * step - 10
     local rolesW = 3 * step - 10
     local oneRow = 9 + bossesW + 21 + rolesW + 9 <= kw
     local y2 = oneRow and 23 or 41
     for i, fs in ipairs(kt.boss) do
-        fs:ClearAllPoints()
-        fs:SetPoint("TOPLEFT", kt, "TOPLEFT", 9 + (i - 1) * step, -23)
+        fs.icon:ClearAllPoints()
+        fs.icon:SetPoint("TOPLEFT", kt, "TOPLEFT", 9 + (i - 1) * step, -23)
     end
     local rx = oneRow and (9 + bossesW + 21) or 9
     for i, fs in ipairs(kt.role) do
-        fs:ClearAllPoints()
-        fs:SetPoint("TOPLEFT", kt, "TOPLEFT", rx + (i - 1) * step, -y2)
+        fs.icon:ClearAllPoints()
+        fs.icon:SetPoint("TOPLEFT", kt, "TOPLEFT", rx + (i - 1) * step, -y2)
     end
     kt.sep:ClearAllPoints()
     if oneRow then
@@ -402,30 +411,32 @@ local function layoutKills(kw)
     kt:SetHeight(oneRow and TILE or (TILE + 18))
 end
 
-local function renderKills(rec, s)
+local function renderKills(rec)
     local kt = right.killTile
     local bosses = ns.BossesOf(state.mode)
-    local src = s and s.hist
-    if state.season == ALL then src = rec and rec.hist end
-    local hist = src and src[state.mode] or {}
+    local hist = rec and rec.hist and rec.hist[state.mode] or {}
     kt.bossRows = {}
     for i, fs in ipairs(kt.boss) do
         local boss = bosses[i]
         if boss then
             local h = hist[boss]
             local n = h and h.kills or 0
-            killLine(fs, string.format("|T%s:16:16:0:0:64:64:5:59:5:59|t", ns.BOSS_ICON[boss]), n)
+            fs.icon:SetTexture(ns.BOSS_ICON[boss])
+            fs.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+            killLine(fs, n)
             tinsert(kt.bossRows, { ns.BOSS[boss], n })
             fs:Show()
+            fs.icon:Show()
         else
             fs:Hide()
+            fs.icon:Hide()
         end
     end
-    local k = s and s.roleKills and s.roleKills[state.mode] or {}
+    local k = rec and rec.roleKills and rec.roleKills[state.mode] or {}
     kt.roleRows = {}
     for i, role in ipairs({ "d", "h", "t" }) do
         local n = k[role] or 0
-        killLine(kt.role[i], ns.RoleIcon(role, 16), n)
+        killLine(kt.role[i], n)
         tinsert(kt.roleRows, { ({ "ДД", "Хил", "Танк" })[i], n })
     end
 end
@@ -434,8 +445,8 @@ local function killTip(self)
     local rows = {}
     for _, r in ipairs(self.bossRows or {}) do tinsert(rows, r) end
     for _, r in ipairs(self.roleRows or {}) do tinsert(rows, r) end
-    local foot = state.season == ALL and "по всем килам, все сезоны" or "по всем килам сезона"
-    ns.TipTable(self, "ANCHOR_TOP", "Убито боссов — " .. (ns.MODE_FULL[state.mode] or state.mode) .. ", " .. seasonCaption(), rows, foot)
+    ns.TipTable(self, "ANCHOR_TOP", "Убито боссов за все сезоны — " .. (ns.MODE_FULL[state.mode] or state.mode), rows,
+        "по всем килам всех сезонов, от выбранного сезона не зависит")
 end
 
 local function renderNote()
@@ -866,8 +877,22 @@ local function renderMissing()
     updateRaids()
 end
 
+local function renderRaidView()
+    showRight(false)
+    right.none:Hide()
+    raids = {}
+    updateRaids()
+    right.empty:Hide()
+    ns.RaidPanelShow(frame, RX, HEAD_Y, size.rw, size.h - BOTTOM - HEAD_Y - 4)
+end
+
 local function renderRight(keepScroll)
     hideSeasonList()
+    if state.list == "raid" and state.raidView and ns.RaidPanelShow then
+        renderRaidView()
+        return
+    end
+    if ns.RaidPanelHide then ns.RaidPanelHide() end
     local rec = state.id and ns.Get(state.id)
     if not rec then
         if state.id then
@@ -895,7 +920,7 @@ local function renderRight(keepScroll)
     renderHeader(rec, shown, s)
     renderTiles(rec, s)
     renderSeasons(rec)
-    renderKills(rec, s)
+    renderKills(rec)
 
     local bosses = ns.BossesOf(state.mode)
     right.heads[1]:SetText(ns.Color("grey", "№"))
@@ -944,6 +969,7 @@ local function pickSeason(sn)
 end
 
 local function selectId(id)
+    state.raidView = false
     if right.noteBox and right.noteBox:HasFocus() then right.noteBox:ClearFocus() end
     state.id = id
     ns.HideCopy()
@@ -997,6 +1023,27 @@ local function poolSize(rowH, top)
     return math.ceil((h - top) / rowH) + 1
 end
 
+local function layoutTabs()
+    local inRaid = ns.InRaid and ns.InRaid()
+    if not inRaid and state.list == "raid" then
+        state.list = "all"
+        state.raidView = false
+    end
+    local n = inRaid and 3 or 2
+    local bw = math.floor((LEFT_W - 2 * (n - 1)) / n)
+    for i, b in ipairs(listSeg) do
+        if i <= n then
+            b:SetWidth(bw)
+            b:ClearAllPoints()
+            b:SetPoint("TOPLEFT", frame, "TOPLEFT", 14 + (i - 1) * (bw + 2), -68)
+            ns.SetButton(b, b.list == state.list)
+            b:Show()
+        else
+            b:Hide()
+        end
+    end
+end
+
 local function buildLeft()
     searchBox = CreateFrame("EditBox", "PlayerRaidsSearch", frame, "InputBoxTemplate")
     searchBox:SetPoint("TOPLEFT", 20, -44)
@@ -1023,20 +1070,22 @@ local function buildLeft()
     ns.BlurOnClick(searchBox)
 
     listSeg = {}
-    local bw = math.floor((LEFT_W - 2) / 2)
-    for i, it in ipairs({ { "all", "Все" }, { "ren", "Ренеймы" } }) do
-        local b = ns.MakeButton(frame, 13, bw, 20)
+    for i, it in ipairs({ { "all", "Все" }, { "ren", "Ренеймы" }, { "raid", "Рейд" } }) do
+        local b = ns.MakeButton(frame, 13, 60, 20)
         b.text:SetText(it[2])
-        b:SetPoint("TOPLEFT", frame, "TOPLEFT", 14 + (i - 1) * (bw + 2), -68)
         b.list = it[1]
         b.onClick = function(self)
+            local was = state.list
             state.list = self.list
+            state.raidView = self.list == "raid"
             for _, o in ipairs(listSeg) do ns.SetButton(o, o.list == state.list) end
             fillLeft()
+            if state.raidView or was == "raid" then renderRight() end
         end
         ns.SetButton(b, it[1] == state.list)
         listSeg[i] = b
     end
+    layoutTabs()
 
     listLabel = ns.Text(frame, 12)
     dim(listLabel)
@@ -1540,7 +1589,7 @@ local function buildRight()
     kt.title = ns.Text(kt, 12)
     gold(kt.title)
     kt.title:SetPoint("TOPLEFT", 9, -4)
-    kt.title:SetText("Убито боссов")
+    kt.title:SetText("Убито боссов за все сезоны")
     kt.sep = ns.Rect(kt, 1, 0.82, 0, 0.2, "ARTWORK")
     kt.sep:SetWidth(1)
     kt.sep:SetHeight(16)
@@ -1548,9 +1597,22 @@ local function buildRight()
     for i = 1, 3 do
         local b = ns.Text(kt, 13)
         b:SetHeight(16)
+        b.icon = kt:CreateTexture(nil, "ARTWORK")
+        b.icon:SetWidth(16)
+        b.icon:SetHeight(16)
+        b:ClearAllPoints()
+        b:SetPoint("LEFT", b.icon, "RIGHT", 4, 0)
         kt.boss[i] = b
         local r = ns.Text(kt, 13)
         r:SetHeight(16)
+        r.icon = kt:CreateTexture(nil, "ARTWORK")
+        r.icon:SetWidth(16)
+        r.icon:SetHeight(16)
+        r.icon:SetTexture(ns.ROLE_TEX)
+        local rc = ns.ROLE_COORD[({ "d", "h", "t" })[i]]
+        r.icon:SetTexCoord(rc[1] / 64, rc[2] / 64, rc[3] / 64, rc[4] / 64)
+        r:ClearAllPoints()
+        r:SetPoint("LEFT", r.icon, "RIGHT", 4, 0)
         kt.role[i] = r
     end
     right.killTile = kt
@@ -1869,6 +1931,18 @@ local function buildWatchers()
     ns.OnRefresh(function(name)
         if frame:IsShown() and state.id and ns.NameOf(state.id) == name then renderRight(true) end
     end)
+
+    if ns.OnRaidChanged then
+        ns.OnRaidChanged(function()
+            if not frame:IsShown() then return end
+            local was = state.list
+            layoutTabs()
+            if was == "raid" then
+                fillLeft()
+                if state.list ~= "raid" then renderRight() end
+            end
+        end)
+    end
 end
 
 local function build()
@@ -1938,6 +2012,7 @@ function ns.OpenBrowser(query)
     f:Show()
     applySize()
     updateStatus()
+    layoutTabs()
     if not PlayerRaidsDB.guideSeen then
         PlayerRaidsDB.guideSeen = true
         ns.ShowGuide(f)
@@ -1957,6 +2032,11 @@ function ns.OpenBrowser(query)
     else
         selectId(state.id)
     end
+end
+
+function ns.BrowserSelect(id)
+    if not frame then return end
+    selectId(id)
 end
 
 function ns.BrowserShown()
