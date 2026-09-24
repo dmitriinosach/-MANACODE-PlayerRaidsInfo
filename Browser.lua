@@ -2219,6 +2219,45 @@ local function buildStatus()
     local reload = reloadButton(frame)
     reload:SetPoint("RIGHT", howBtn, "LEFT", -4, 0)
     ns.GuideTargets.reload = reload
+
+    local function fakeOn()
+        return ns.InRaid() and (GetNumRaidMembers() or 0) == 0
+    end
+    local function fake(arg)
+        local cmd = SlashCmdList and SlashCmdList.PLAYERRAIDSFAKE
+        if not cmd then return end
+        if arg == "off" then
+            cmd("off")
+        else
+            if IsInGuild and IsInGuild() then cmd("guild") end
+            if not fakeOn() then cmd("") end
+            if fakeOn() and state.list ~= "raid" and listSeg[3] then listSeg[3].onClick(listSeg[3]) end
+        end
+        right.syncFake()
+    end
+    local show = ns.MakeButton(frame, 12, nil, 18)
+    ns.FitButton(show, "Тестовый рейд", 18)
+    show:SetPoint("RIGHT", reload, "LEFT", -12, 0)
+    show.onClick = function() fake() end
+    show.tip = function(self)
+        ns.Tip(self, "ANCHOR_TOP", "Тестовый рейд", "Собирает 25 человек из гильдии, кто ходил в выбранную сложность, и открывает «Мой рейд». Не в гильдии — случайных из базы.")
+    end
+    local off = ns.MakeButton(frame, 12, nil, 18)
+    ns.FitButton(off, "Убрать тестовый", 18)
+    off:SetPoint("RIGHT", reload, "LEFT", -12, 0)
+    off.onClick = function() fake("off") end
+    local again = ns.MakeButton(frame, 12, nil, 18)
+    ns.FitButton(again, "Пересобрать", 18)
+    again:SetPoint("RIGHT", off, "LEFT", -4, 0)
+    again.onClick = function() fake() end
+    again.tip = show.tip
+    right.syncFake = function()
+        local on = fakeOn()
+        local real = (GetNumRaidMembers() or 0) > 0
+        if on then off:Show(); again:Show() else off:Hide(); again:Hide() end
+        if on or real then show:Hide() else show:Show() end
+    end
+    right.syncFake()
 end
 
 local function buildWatchers()
@@ -2257,6 +2296,7 @@ local function buildWatchers()
 
     if ns.OnRaidChanged then
         ns.OnRaidChanged(function()
+            if right.syncFake then right.syncFake() end
             if not frame:IsShown() then return end
             local was = state.list
             layoutTabs()

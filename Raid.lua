@@ -20,11 +20,12 @@ local TILE_BACKDROP = {
     insets = { left = 3, right = 3, top = 3, bottom = 3 },
 }
 local HOW = {
-    "Дпс рейда — сумма средних дпс ДД и танков на выбранном боссе.",
-    "Худший случай — сумма их минимумов.",
-    "Процент — место среди рейдов сезона, убивших этого босса, по сумме дпс.",
-    "Шанс без вайпов — доля таких рейдов, прошедших вечер без вайпов.",
-    "Нет данных — игрок в сумму не входит, как 0: оценка занижена.",
+    "У каждого берутся его последние рейды в этой сложности на нынешнем ilvl (до -2), хотя бы три.",
+    "Дпс рейда — сумма средних дпс ДД и танков на этом боссе по тем рейдам. Хпс — так же по хилам.",
+    "Худший случай — если каждый выдаст свой минимум.",
+    "Закрывали — в какой доле тех рейдов босс убит. Танк весит x3, хил x2, ДД x1.",
+    "Без вайпов — доля рейдов, где за весь вечер не вайпались ни разу: на каком боссе был вайп, сайт не пишет.",
+    "Нет данных по дпс — игрок входит в сумму как 0, прогноз занижен.",
 }
 
 local panel, lscroll, sum
@@ -241,18 +242,19 @@ local function renderSummary()
     local r = compute()
     local boss = bossKey()
     local L = sum.lines
-    L[1]:SetText("Дпс рейда: " .. ns.Color("white", ns.Compact(r.exp)) .. " ожидаемо, "
-        .. ns.Color("grey", ns.Compact(r.worst)) .. " в худшем случае")
+    L[1]:SetText("Дпс рейда: " .. ns.Color("white", ns.Compact(r.exp))
+        .. ns.Color("grey", ", в худшем случае " .. ns.Compact(r.worst)))
     L[2]:SetText("Хпс рейда: " .. ns.Color("white", ns.Compact(r.hps)))
     if r.ww > 0 then
-        L[3]:SetText("Убивают " .. (BOSS_GEN[boss] or ns.BOSS[boss]) .. ": " .. chanceText(r.kw / r.ww * 100)
-            .. ns.Color("grey", " рейдов состава"))
-        L[4]:SetText("Рейд без вайпов: " .. chanceText(r.cw / r.ww * 100) .. ns.Color("grey", " (вайпы на весь рейд)"))
+        L[3]:SetText("Закрывали " .. (BOSS_GEN[boss] or ns.BOSS[boss]) .. ": " .. chanceText(r.kw / r.ww * 100)
+            .. ns.Color("grey", " своих рейдов"))
+        L[4]:SetText("Без вайпов за вечер: " .. chanceText(r.cw / r.ww * 100)
+            .. ns.Color("grey", " (весь рейд, не один босс)"))
     else
         L[3]:SetText(ns.Color("grey", "Никто из состава не ходил в " .. (ns.MODE_FULL[pick.mode] or pick.mode)))
         L[4]:SetText("")
     end
-    L[5]:SetText("опыт состава: рейды на своём ilvl (до -2 от лучшего), танк x3, хил x2")
+    L[5]:SetText("по последним рейдам каждого, наведи — как считается")
     local warn = {}
     if r.t < 2 then tinsert(warn, "танков " .. r.t .. " из 2") end
     if r.h < 5 then tinsert(warn, "хилов " .. r.h .. " из 5") end
