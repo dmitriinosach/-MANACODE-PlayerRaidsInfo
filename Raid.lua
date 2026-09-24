@@ -168,11 +168,36 @@ local function updateRows()
     FauxScrollFrame_Update(lscroll, #list, panel.nrows, ROW_H)
 end
 
+local ROLE_WEIGHT = { t = 3, h = 2, d = 1 }
+
+local function cleanRate(rec, mode)
+    if not rec then return nil end
+    local cur, prev = ns.CurrentSeason(), ns.PrevSeason()
+    local total, clean = 0, 0
+    for _, s in ipairs({ ns.SeasonOf(rec, cur) or false, prev and (ns.SeasonBlock(rec, prev)) or false }) do
+        if s and total < 3 then
+            for _, raid in ipairs(s.byMode[mode] or {}) do
+                if raid.wipes then
+                    total = total + 1
+                    if raid.wipes == 0 then clean = clean + 1 end
+                end
+            end
+        end
+    end
+    if total == 0 then return nil end
+    return clean / total
+end
+
 local function compute()
-    local r = { exp = 0, worst = 0, hps = 0, noData = 0, t = 0, h = 0, d = 0 }
+    local r = { exp = 0, worst = 0, hps = 0, noData = 0, t = 0, h = 0, d = 0, cw = 0, ww = 0 }
     for _, m in ipairs(roster) do
         local st = m.stat or statFor(m)
         r[st.role] = r[st.role] + 1
+        local c = cleanRate(st.rec, pick.mode)
+        if c then
+            local w = ROLE_WEIGHT[st.role] or 1
+            r.cw, r.ww = r.cw + c * w, r.ww + w
+        end
         if st.avg then
             if st.role == "h" then
                 r.hps = r.hps + st.avg
@@ -203,17 +228,23 @@ local function renderSummary()
         local p, pw = ns.BenchPercent(bench, r.exp), ns.BenchPercent(bench, r.worst)
         L[2]:SetText("Сильнее " .. ns.Color("white", floor(p + 0.5) .. "%") .. " составов, убивших "
             .. (BOSS_GEN[boss] or ns.BOSS[boss]) .. "; в худшем — " .. ns.Color("grey", floor(pw + 0.5) .. "%"))
-        L[3]:SetText("Шанс без вайпов: " .. chanceText(ns.BenchNoWipe(bench, p)) .. ", в худшем — "
-            .. chanceText(ns.BenchNoWipe(bench, pw)))
+        local byPower = ns.BenchNoWipe(bench, p)
+        if r.ww > 0 then
+            local byExp = r.cw / r.ww * 100
+            L[3]:SetText("Шанс без вайпов: " .. chanceText((byPower + byExp) / 2) .. ns.Color("grey", "  (сила ")
+                .. chanceText(byPower) .. ns.Color("grey", ", опыт ") .. chanceText(byExp) .. ns.Color("grey", ")"))
+        else
+            L[3]:SetText("Шанс без вайпов: " .. chanceText(byPower) .. ns.Color("grey", "  (по силе, опыта нет)"))
+        end
         local h, verdict = bench.hps, "около медианы"
         if h[1] and r.hps < h[1] then verdict = ns.Color("ff8040", "ниже большинства")
         elseif h[3] and r.hps > h[3] then verdict = ns.Color("green", "выше большинства") end
         L[4]:SetText("Хпс рейда: " .. ns.Color("white", ns.Compact(r.hps)) .. " — " .. verdict)
-        L[5]:SetText("по " .. bench.n .. " " .. ns.Plural(bench.n, "рейду", "рейдам", "рейдам")
-            .. " сезона, вайпы — на весь рейд")
+        L[5]:SetText("сила — по " .. bench.n .. " " .. ns.Plural(bench.n, "рейду", "рейдам", "рейдам")
+            .. " сезона; опыт — рейды состава, танк x3, хил x2")
     else
         L[2]:SetText(ns.Color("grey", "Эталонов для «" .. ns.BOSS[boss] .. ", " .. ns.MODE_FULL[pick.mode] .. "» нет — мало рейдов в выгрузке"))
-        L[3]:SetText("")
+        L[3]:SetText(r.ww > 0 and ("Шанс без вайпов по опыту: " .. chanceText(r.cw / r.ww * 100)) or "")
         L[4]:SetText("Хпс рейда: " .. ns.Color("white", ns.Compact(r.hps)))
         L[5]:SetText("")
     end
