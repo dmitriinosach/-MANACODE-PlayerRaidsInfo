@@ -528,8 +528,6 @@ function ns.Ambient(f, classFile, base, amount, alpha)
 end
 
 ns.ART = "Interface\\AddOns\\" .. ADDON .. "\\art\\"
-ns.BTN_FILL = ns.ART .. "btn_fill.tga"
-ns.BTN_EDGE = ns.ART .. "btn_edge.tga"
 ns.GLOW_TEX = ns.ART .. "glow.tga"
 
 local SLICE_UV = { 0, 0.25, 0.75, 1 }
@@ -580,13 +578,19 @@ function ns.SliceBlend(s, mode)
 end
 
 ns.BTN = {
-    bg = { 0.27, 0.24, 0.19, 0.96 }, border = { 0.56, 0.47, 0.30, 0.9 }, text = { 0.88, 0.86, 0.80 },
-    bgHover = { 0.38, 0.33, 0.22, 0.98 }, borderHover = { 0.95, 0.80, 0.42, 1 }, textHover = { 1, 1, 1 },
-    bgDown = { 0.15, 0.13, 0.10, 1 },
-    bgOn = { 0.50, 0.36, 0.09, 1 }, bgOnHover = { 0.60, 0.44, 0.12, 1 }, borderOn = { 1, 0.86, 0.42, 1 },
-    textOn = { 1, 0.97, 0.86 },
-    bgOff = { 0.13, 0.12, 0.11, 0.85 }, borderOff = { 0.28, 0.27, 0.25, 0.7 }, textOff = { 0.42, 0.42, 0.42 },
-    bgOnOff = { 0.30, 0.23, 0.08, 0.9 }, textOnOff = { 0.76, 0.68, 0.50 },
+    backdrop = {
+        bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
+        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+        tile = true, tileSize = 16, edgeSize = 12,
+        insets = { left = 3, right = 3, top = 3, bottom = 3 },
+    },
+    bg = { 0, 0, 0, 0.7 }, border = { 1, 0.82, 0, 0.65 }, text = { 0.92, 0.92, 0.92 },
+    bgHover = { 0, 0, 0, 0.45 }, borderHover = { 1, 0.82, 0, 1 }, textHover = { 1, 1, 1 },
+    bgDown = { 0, 0, 0, 0.85 },
+    bgOn = { 0.4, 0.33, 0, 0.95 }, bgOnHover = { 0.48, 0.39, 0, 0.95 }, borderOn = { 1, 0.82, 0, 1 },
+    textOn = { 1, 1, 1 },
+    bgOff = { 0, 0, 0, 0.75 }, borderOff = { 0.45, 0.45, 0.45, 0.6 }, textOff = { 0.45, 0.45, 0.45 },
+    bgOnOff = { 0.25, 0.2, 0, 0.9 }, textOnOff = { 0.7, 0.66, 0.55 },
     textEmpty = { 0.62, 0.62, 0.64 },
 }
 
@@ -607,8 +611,8 @@ function ns.PaintButton(b)
     else
         bg, br, t = c.bg, c.border, (b.empty and c.textEmpty or c.text)
     end
-    ns.SliceColor(b.fill, bg[1], bg[2], bg[3], bg[4])
-    ns.SliceColor(b.edge, br[1], br[2], br[3], br[4])
+    b:SetBackdropColor(bg[1], bg[2], bg[3], bg[4])
+    b:SetBackdropBorderColor(br[1], br[2], br[3], br[4])
     if b.text then b.text:SetTextColor(t[1], t[2], t[3]) end
     if b.icon then
         local k = b.off and 0.45 or 1
@@ -647,8 +651,7 @@ function ns.MakeButton(parent, fontSize, w, h)
     local b = CreateFrame("Button", nil, parent)
     b:SetHeight(h or 20)
     if w then b:SetWidth(w) end
-    b.edge = ns.NineSlice(b, "BACKGROUND", ns.BTN_EDGE, 8)
-    b.fill = ns.NineSlice(b, "BORDER", ns.BTN_FILL, 8)
+    b:SetBackdrop(ns.BTN.backdrop)
     b.text = ns.Text(b, fontSize or 13, "CENTER")
     b.text:SetPoint("CENTER", b, "CENTER", 0, 0)
     b.SetIcon = buttonIcon
