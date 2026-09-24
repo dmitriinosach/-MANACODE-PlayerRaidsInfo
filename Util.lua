@@ -540,8 +540,12 @@ function ns.NineSlice(parent, layer, path, corner, uv)
     for row = 1, 3 do
         for col = 1, 3 do
             local t = parent:CreateTexture(nil, layer)
-            t:SetTexture(path)
-            t:SetTexCoord(uv[col], uv[col + 1], uv[row], uv[row + 1])
+            if t:SetTexture(path) then
+                t:SetTexCoord(uv[col], uv[col + 1], uv[row], uv[row + 1])
+            else
+                t:SetTexture(ns.WHITE)
+                s.fallback = true
+            end
             s[#s + 1] = t
         end
     end
