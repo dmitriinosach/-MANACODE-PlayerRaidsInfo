@@ -2141,8 +2141,12 @@ local function headButton(anchor, tex, coord, title, onClick)
     inner:SetHeight(17)
     inner:SetPoint("CENTER")
     b.icon = b:CreateTexture(nil, "OVERLAY")
-    b.icon:SetTexture(tex)
-    b.icon:SetTexCoord(coord, 1 - coord, coord, 1 - coord)
+    if coord > 0.065 and SetPortraitToTexture then
+        SetPortraitToTexture(b.icon, tex)
+    else
+        b.icon:SetTexture(tex)
+        b.icon:SetTexCoord(coord, 1 - coord, coord, 1 - coord)
+    end
     b.icon:SetWidth(13)
     b.icon:SetHeight(13)
     b.icon:SetPoint("CENTER")
