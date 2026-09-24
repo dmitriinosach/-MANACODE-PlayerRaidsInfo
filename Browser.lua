@@ -277,7 +277,7 @@ local function cellTip(self)
     local spec = ns.SpecRu(raid.spec)
     if not spec or ns.SpecRole(raid.spec) ~= cell.role then spec = ({ d = "ДД", h = "хил", t = "танк" })[cell.role] end
     if spec then tinsert(ctx, spec) end
-    if cell.ilvl then tinsert(ctx, "илвл " .. cell.ilvl .. "±2") end
+    if cell.ilvl then tinsert(ctx, "ilvl " .. cell.ilvl .. "±2") end
     ns.TipTable(self, "ANCHOR_TOP", (ns.BOSS[boss] or boss) .. " — " .. (ns.MODE_FULL[raid.mode] or raid.mode), rows,
         #ctx > 0 and ("на гире: " .. table.concat(ctx, ", ")) or nil)
 end
@@ -703,7 +703,9 @@ local function renderHeader(rec, shown, s, subText)
         elseif spec then
             tinsert(bits, spec)
         end
-        if s and s.gs then tinsert(bits, "илвл " .. s.gs) end
+        if s and s.gs then tinsert(bits, "ilvl " .. s.gs) end
+        local gsText = ns.GearScoreText and ns.GearScoreText(state.id)
+        if gsText then tinsert(bits, gsText) end
         subText = table.concat(bits, ns.Color("dim", ", "))
     end
     local sub = right.sub
@@ -1134,7 +1136,7 @@ local function renderRight(keepScroll)
     renderKills(rec)
 
     local bosses = ns.BossesOf(state.mode)
-    for i, text in ipairs({ "№", "Сезон", "Дата", "Вайпы", "Илвл" }) do headLabel(i, text) end
+    for i, text in ipairs({ "№", "Сезон", "Дата", "Вайпы", "Ilvl" }) do headLabel(i, text) end
     for b = 1, 3 do
         local i = #TCOLS + b
         headLabel(i, bosses[b] and (ns.BOSS[bosses[b]] or bosses[b]) or "", bosses[b] and ns.BOSS_ICON[bosses[b]])
@@ -1801,7 +1803,7 @@ local function buildTable(keep, data)
                 ns.TipTable(self, "ANCHOR_TOP", "Колонки босса", {
                     { "дпс", "урон, у хилов — исцеление" },
                     { "парс", "18 (42)" },
-                    "парс среди всех (парс на своём гире: тот же спек, илвл ±2)",
+                    "парс среди всех (парс на своём гире: тот же спек, ilvl ±2)",
                     "Нет числа в скобках — таких килов меньше 20.",
                 }, "клик по заголовку — сортировка по парсу")
             end)
@@ -2044,13 +2046,19 @@ local function buildHow()
     local close = CreateFrame("Button", nil, howPanel, "UIPanelCloseButton")
     close:SetPoint("TOPRIGHT", 2, 2)
 
+    local intro = ns.Text(howPanel, 13)
+    intro:SetWidth(408)
+    intro:SetPoint("TOPLEFT", 16, -42)
+    grey(intro)
+    intro:SetText("Правила аддонов не дают им выходить в интернет и получать данные на лету. Поэтому статистику рейдов нужно скачать готовыми файлами. Выберите один из двух способов.")
+
     local h1 = ns.Text(howPanel, 13, "LEFT", "head")
-    h1:SetPoint("TOPLEFT", 16, -44)
+    h1:SetPoint("TOPLEFT", intro, "BOTTOMLEFT", 0, -12)
     h1:SetText("1. Обновлялкой")
     local b1 = ns.Text(howPanel, 13)
     b1:SetWidth(408)
     b1:SetPoint("TOPLEFT", h1, "BOTTOMLEFT", 0, -4)
-    b1:SetText("Запустите ОбновитьДанные.exe в папке Interface\\AddOns\\Manacode_PlayerRaidsInfo, выберите сезоны и дождитесь конца загрузки. Потом в игре — /reload.")
+    b1:SetText("Запустите ОбновитьДанные.exe из папки Interface\\AddOns\\Manacode_PlayerRaidsInfo, отметьте сезоны и дождитесь конца загрузки. Затем в игре наберите /reload.")
 
     local h2 = ns.Text(howPanel, 13, "LEFT", "head")
     h2:SetPoint("TOPLEFT", b1, "BOTTOMLEFT", 0, -12)
@@ -2058,7 +2066,10 @@ local function buildHow()
     local b2 = ns.Text(howPanel, 13)
     b2:SetWidth(408)
     b2:SetPoint("TOPLEFT", h2, "BOTTOMLEFT", 0, -4)
-    b2:SetText("Скачайте архив по ссылке и распакуйте в Interface\\AddOns с заменой файлов. Потом — /reload.")
+    local cur = ns.CurrentSeason and ns.CurrentSeason()
+    b2:SetText("Откройте страницу по ссылке. season_all.zip — все сезоны сразу, если не знаете, что выбрать, качайте его."
+        .. (cur and (" season" .. cur .. ".zip — только текущий сезон, остальные — прошлые по одному.") or "")
+        .. " Распакуйте в Interface\\AddOns с заменой файлов, пароль raids-circle. Затем /reload.")
 
     howPanel.url = urlBox(howPanel)
     howPanel.url:SetPoint("TOPLEFT", b2, "BOTTOMLEFT", 6, -8)
@@ -2067,6 +2078,10 @@ local function buildHow()
     dim(hint)
     hint:SetPoint("TOPLEFT", howPanel.url, "BOTTOMLEFT", -6, -4)
     hint:SetText("Ссылку в игре не открыть: щёлкните по полю, Ctrl+C — скопировать")
+
+    local textH = 0
+    for _, fs in ipairs({ intro, h1, b1, h2, b2, hint }) do textH = textH + (fs:GetStringHeight() or 14) end
+    howPanel:SetHeight(math.floor(42 + textH + 12 + 4 + 12 + 4 + 8 + 20 + 4 + 16 + 22 + 14 + 0.5))
 
     local ok = ns.MakeButton(howPanel, 13, 96, 22)
     ok.text:SetText("Закрыть")

@@ -9,14 +9,14 @@ local REFRESH = 0.25
 local HEAD_ROWS = 36
 local GAP = 10
 local MARGIN = 8
-local GLOW = 12
-local GLOW_A = 0.6
-local GLOW_SLICES = 3
+local GLOW = 24
+local GLOW_A = 0.65
+local GLOW_UV = { 0, 0.375, 0.625, 1 }
 local SIDES = { "below", "above", "right", "left" }
 
 local RING_BACKDROP = {
     edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-    edgeSize = 16,
+    edgeSize = 12,
 }
 
 local STEPS = {
@@ -69,10 +69,8 @@ local STEPS = {
     },
 }
 
-local host, ov, card, ring, glow, pulse
+local host, ov, card, ring, glow, halo, pulse
 local bands = {}
-local strips = {}
-local corners = {}
 local ui = {}
 local step, since, dirty, escOff = 1, 0, false, nil
 local acc, hole = {}, {}
@@ -200,55 +198,19 @@ local function maskAround(h)
     band(4, h.r, h.t, ow - h.r, h.b - h.t)
 end
 
-local function putGlow(t, x, y, w, hh, ow, oh)
-    local x2, y2 = x + w, y + hh
-    if x < 0 then x = 0 end
-    if y < 0 then y = 0 end
-    if x2 > ow then x2 = ow end
-    if y2 > oh then y2 = oh end
-    if x2 - x < 1 or y2 - y < 1 then
-        t:Hide()
-        return
-    end
-    t:ClearAllPoints()
-    t:SetPoint("TOPLEFT", glow, "TOPLEFT", x, -y)
-    t:SetWidth(x2 - x)
-    t:SetHeight(y2 - y)
-    t:Show()
-end
-
-local function fade(t, orient, aNear, aFar, nearIsStart)
-    if nearIsStart then
-        t:SetGradientAlpha(orient, GR, GG, GB, aNear, GR, GG, GB, aFar)
-    else
-        t:SetGradientAlpha(orient, GR, GG, GB, aFar, GR, GG, GB, aNear)
-    end
-end
-
 local function glowAround(h)
     local ow, oh = ov:GetWidth(), ov:GetHeight()
-    local w, hh = h.r - h.l, h.b - h.t
-    putGlow(strips[1], h.l, h.t - GLOW, w, GLOW, ow, oh)
-    fade(strips[1], "VERTICAL", GLOW_A, 0, true)
-    putGlow(strips[2], h.l, h.b, w, GLOW, ow, oh)
-    fade(strips[2], "VERTICAL", GLOW_A, 0, false)
-    putGlow(strips[3], h.l - GLOW, h.t, GLOW, hh, ow, oh)
-    fade(strips[3], "HORIZONTAL", GLOW_A, 0, false)
-    putGlow(strips[4], h.r, h.t, GLOW, hh, ow, oh)
-    fade(strips[4], "HORIZONTAL", GLOW_A, 0, true)
-
-    local s = GLOW / GLOW_SLICES
-    for i = 1, GLOW_SLICES do
-        local a = GLOW_A * (1 - (i - 0.5) / GLOW_SLICES)
-        local c = corners[i]
-        putGlow(c[1], h.l - i * s, h.t - GLOW, s, GLOW, ow, oh)
-        fade(c[1], "VERTICAL", a, 0, true)
-        putGlow(c[2], h.r + (i - 1) * s, h.t - GLOW, s, GLOW, ow, oh)
-        fade(c[2], "VERTICAL", a, 0, true)
-        putGlow(c[3], h.l - i * s, h.b, s, GLOW, ow, oh)
-        fade(c[3], "VERTICAL", a, 0, false)
-        putGlow(c[4], h.r + (i - 1) * s, h.b, s, GLOW, ow, oh)
-        fade(c[4], "VERTICAL", a, 0, false)
+    glow:ClearAllPoints()
+    glow:SetPoint("TOPLEFT", ov, "TOPLEFT", h.l - GLOW, -(h.t - GLOW))
+    glow:SetPoint("BOTTOMRIGHT", ov, "TOPLEFT", h.r + GLOW, -(h.b + GLOW))
+    local top, left, right, bottom = h.t > 0, h.l > 0, h.r < ow, h.b < oh
+    local show = {
+        top and left, top, top and right,
+        left, false, right,
+        bottom and left, bottom, bottom and right,
+    }
+    for i = 1, 9 do
+        if show[i] then halo[i]:Show() else halo[i]:Hide() end
     end
     glow:Show()
 end
@@ -330,7 +292,7 @@ local function layout()
 
     local bodyH = ui.body:GetStringHeight()
     if bodyH < 12 then bodyH = 12 end
-    local cardH = 11 + 16 + 6 + bodyH + 10 + 16 + 11
+    local cardH = 11 + 16 + 6 + bodyH + 10 + 20 + 10
     card:SetHeight(cardH)
 
     card:ClearAllPoints()
@@ -360,22 +322,7 @@ local function render()
     ui.title:SetText(s.title)
     ui.body:SetText(s.text)
 
-    local GREY = { 0.55, 0.55, 0.55 }
-    local function place(btn, base)
-        btn.base = base
-        btn.fs:SetTextColor(base[1], base[2], base[3])
-        btn:SetWidth(btn.fs:GetStringWidth() + 6)
-    end
-
-    ui.skip:ClearAllPoints(); ui.skip:SetPoint("BOTTOMLEFT", 12, 11)
-    place(ui.skip, GREY)
-
-    ui.next.fs:SetText(step < #STEPS and "Далее" or "Готово")
-    ui.next:ClearAllPoints(); ui.next:SetPoint("BOTTOMRIGHT", -12, 11)
-    place(ui.next, { GR, GG, GB })
-
-    ui.back:ClearAllPoints(); ui.back:SetPoint("BOTTOMRIGHT", ui.next, "BOTTOMLEFT", -14, 0)
-    place(ui.back, GREY)
+    ns.FitButton(ui.next, step < #STEPS and "Далее" or "Готово", 22)
     if step > 1 then ui.back:Show() else ui.back:Hide() end
 end
 
@@ -416,18 +363,10 @@ local function veilClick(self, button)
     if button == "RightButton" then go(step - 1) else go(step + 1) end
 end
 
-local function textBtn(parent, onClick)
-    local b = CreateFrame("Button", nil, parent)
-    b:SetHeight(16)
-    local fs = ns.Text(b, 13, "CENTER")
-    fs:SetAllPoints(b)
-    b.fs = fs
-    b:SetScript("OnEnter", function(self) self.fs:SetTextColor(1, 1, 1) end)
-    b:SetScript("OnLeave", function(self)
-        local c = self.base or { 0.6, 0.6, 0.6 }
-        self.fs:SetTextColor(c[1], c[2], c[3])
-    end)
-    b:SetScript("OnClick", function() onClick() end)
+local function cardBtn(text, onClick)
+    local b = ns.MakeButton(card, 13, nil, 20)
+    ns.FitButton(b, text, 22)
+    b.onClick = onClick
     return b
 end
 
@@ -461,29 +400,16 @@ local function ensureFrames(parent)
     end
 
     glow = CreateFrame("Frame", nil, ov)
-    glow:SetAllPoints(ov)
     glow:SetFrameLevel(base + 2)
     glow:Hide()
-    for i = 1, 4 do
-        local t = glow:CreateTexture(nil, "ARTWORK")
-        t:SetTexture(ns.WHITE)
-        t:Hide()
-        strips[i] = t
-    end
-    for i = 1, GLOW_SLICES do
-        local c = {}
-        for j = 1, 4 do
-            local t = glow:CreateTexture(nil, "ARTWORK")
-            t:SetTexture(ns.WHITE)
-            t:Hide()
-            c[j] = t
-        end
-        corners[i] = c
-    end
+    halo = ns.NineSlice(glow, "ARTWORK", ns.GLOW_TEX, GLOW, GLOW_UV)
+    ns.SliceBlend(halo, "ADD")
+    ns.SliceColor(halo, GR, GG, GB, GLOW_A)
     pulse = glow:CreateAnimationGroup()
     local fadeAnim = pulse:CreateAnimation("Alpha")
-    fadeAnim:SetChange(-0.45)
-    fadeAnim:SetDuration(0.9)
+    fadeAnim:SetChange(-0.4)
+    fadeAnim:SetDuration(1.1)
+    fadeAnim:SetSmoothing("IN_OUT")
     pulse:SetLooping("BOUNCE")
 
     ring = CreateFrame("Frame", nil, ov)
@@ -511,15 +437,17 @@ local function ensureFrames(parent)
     ui.body:SetWidth(CARD_W - 24)
     ui.body:SetJustifyV("TOP")
 
-    ui.skip = textBtn(card, finish)
-    ui.skip.fs:SetText("Пропустить")
+    ui.skip = cardBtn("Пропустить", finish)
+    ui.skip:SetPoint("BOTTOMLEFT", card, "BOTTOMLEFT", 10, 10)
 
-    ui.back = textBtn(card, function() go(step - 1) end)
-    ui.back.fs:SetText("Назад")
-
-    ui.next = textBtn(card, function()
+    ui.next = cardBtn("Далее", function()
         if step >= #STEPS then finish() else go(step + 1) end
     end)
+    ui.next:SetPoint("BOTTOMRIGHT", card, "BOTTOMRIGHT", -10, 10)
+    ns.SetButton(ui.next, true)
+
+    ui.back = cardBtn("Назад", function() go(step - 1) end)
+    ui.back:SetPoint("RIGHT", ui.next, "LEFT", -6, 0)
 
     ov:SetScript("OnUpdate", function(self, e)
         since = since + e

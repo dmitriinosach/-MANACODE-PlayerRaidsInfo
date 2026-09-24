@@ -62,6 +62,7 @@ local function scan(unit)
         e.title = title
         PlayerRaidsGuilds[id] = e
     end
+    if ns.GearScoreOf then ns.GearScoreOf(id) end
 end
 
 local rescan, rescanAt = nil, 0
@@ -148,4 +149,56 @@ function ns.GuildLines(id)
     end
     table.sort(out, function(a, b) return a.last > b.last end)
     return out
+end
+
+local function gsDay(stamp)
+    stamp = tonumber(stamp)
+    if not stamp or stamp < 190000000000 then return nil end
+    local y = floor(stamp / 100000000)
+    local m = floor(stamp / 1000000) % 100
+    local d = floor(stamp / 10000) % 100
+    local ok, t = pcall(time, { year = y, month = m, day = d, hour = 12 })
+    if not ok or not t then return nil end
+    return floor(t / 86400)
+end
+
+local function gsFromAddon(name)
+    local realm = type(GS_Data) == "table" and GetRealmName and GS_Data[GetRealmName()]
+    local p = realm and realm.Players and name and realm.Players[name]
+    local v = p and tonumber(p.GearScore)
+    if not v or v <= 0 then return nil end
+    return v, gsDay(p.Date) or today()
+end
+
+function ns.GearScoreOf(id)
+    if not id then return nil end
+    local name = ns.NameOf and ns.NameOf(id)
+    local v, day = gsFromAddon(name)
+    local e = PlayerRaidsGuilds and PlayerRaidsGuilds[id]
+    if v then
+        if not e or not e.gsd or day >= e.gsd then
+            e = e or { hist = {} }
+            e.gs, e.gsd = v, day
+            PlayerRaidsGuilds[id] = e
+        end
+    end
+    if e and e.gs then return e.gs, e.gsd and (today() - e.gsd) or nil end
+    return nil
+end
+
+function ns.GearScoreRGB(v)
+    if type(GearScore_GetQuality) == "function" then
+        local ok, r, b, g = pcall(GearScore_GetQuality, v)
+        if ok and r then return r, g, b end
+    end
+    return 0.9, 0.9, 0.9
+end
+
+function ns.GearScoreText(id)
+    local v, age = ns.GearScoreOf(id)
+    if not v then return nil end
+    local r, g, b = ns.GearScoreRGB(v)
+    local t = string.format("GS |cff%02x%02x%02x%d|r", floor(r * 255), floor(g * 255), floor(b * 255), v)
+    if age and age > 7 then t = t .. ns.Color("dim", " (" .. age .. " дн.)") end
+    return t
 end

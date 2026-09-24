@@ -8,6 +8,7 @@ local THROTTLE = 0.5
 local ROLE_ORDER = { "t", "h", "d" }
 local ROLE_HEAD = { t = "Танки", h = "Хилы", d = "ДД" }
 local BOSS_GEN = { surf = "Саурфанга", prof = "Профессора", lich = "Лича", hal = "Халиона" }
+local ICON_CROP = { 0.08, 0.92, 0.08, 0.92 }
 local THIN = {
     bgFile = ns.WHITE, edgeFile = ns.WHITE, edgeSize = 1,
     insets = { left = 1, right = 1, top = 1, bottom = 1 },
@@ -170,33 +171,35 @@ end
 
 local ROLE_WEIGHT = { t = 3, h = 2, d = 1 }
 
-local function cleanRate(rec, mode)
+local function experience(rec, mode, bi)
     if not rec then return nil end
-    local cur, prev = ns.CurrentSeason(), ns.PrevSeason()
-    local total, clean = 0, 0
-    for _, s in ipairs({ ns.SeasonOf(rec, cur) or false, prev and (ns.SeasonBlock(rec, prev)) or false }) do
-        if s and total < 3 then
-            for _, raid in ipairs(s.byMode[mode] or {}) do
-                if raid.wipes then
-                    total = total + 1
-                    if raid.wipes == 0 then clean = clean + 1 end
-                end
+    local blocks = ns.StatBlocks(rec)
+    local top = ns.TopIlvl(blocks)
+    local total, killed, clean = 0, 0, 0
+    for _, bl in ipairs(blocks) do
+        for _, raid in ipairs(bl.s and bl.s.byMode[mode] or {}) do
+            local il = ns.RaidIlvl(raid)
+            if not top or not il or il >= top - 2 then
+                total = total + 1
+                if raid.cells[bi] then killed = killed + 1 end
+                if raid.wipes == 0 then clean = clean + 1 end
             end
         end
     end
     if total == 0 then return nil end
-    return clean / total
+    return killed / total, clean / total
 end
 
 local function compute()
-    local r = { exp = 0, worst = 0, hps = 0, noData = 0, t = 0, h = 0, d = 0, cw = 0, ww = 0 }
+    local r = { exp = 0, worst = 0, hps = 0, noData = 0, t = 0, h = 0, d = 0, kw = 0, cw = 0, ww = 0 }
+    local bi = ns.IsRS(pick.mode) and 1 or pick.boss
     for _, m in ipairs(roster) do
         local st = m.stat or statFor(m)
         r[st.role] = r[st.role] + 1
-        local c = cleanRate(st.rec, pick.mode)
-        if c then
+        local k, c = experience(st.rec, pick.mode, bi)
+        if k then
             local w = ROLE_WEIGHT[st.role] or 1
-            r.cw, r.ww = r.cw + c * w, r.ww + w
+            r.kw, r.cw, r.ww = r.kw + k * w, r.cw + c * w, r.ww + w
         end
         if st.avg then
             if st.role == "h" then
@@ -220,34 +223,19 @@ end
 local function renderSummary()
     local r = compute()
     local boss = bossKey()
-    local bench = ns.Bench(pick.mode, boss)
     local L = sum.lines
     L[1]:SetText("Дпс рейда: " .. ns.Color("white", ns.Compact(r.exp)) .. " ожидаемо, "
         .. ns.Color("grey", ns.Compact(r.worst)) .. " в худшем случае")
-    if bench then
-        local p, pw = ns.BenchPercent(bench, r.exp), ns.BenchPercent(bench, r.worst)
-        L[2]:SetText("Сильнее " .. ns.Color("white", floor(p + 0.5) .. "%") .. " составов, убивших "
-            .. (BOSS_GEN[boss] or ns.BOSS[boss]) .. "; в худшем — " .. ns.Color("grey", floor(pw + 0.5) .. "%"))
-        local byPower = ns.BenchNoWipe(bench, p)
-        if r.ww > 0 then
-            local byExp = r.cw / r.ww * 100
-            L[3]:SetText("Шанс без вайпов: " .. chanceText((byPower + byExp) / 2) .. ns.Color("grey", "  (сила ")
-                .. chanceText(byPower) .. ns.Color("grey", ", опыт ") .. chanceText(byExp) .. ns.Color("grey", ")"))
-        else
-            L[3]:SetText("Шанс без вайпов: " .. chanceText(byPower) .. ns.Color("grey", "  (по силе, опыта нет)"))
-        end
-        local h, verdict = bench.hps, "около медианы"
-        if h[1] and r.hps < h[1] then verdict = ns.Color("ff8040", "ниже большинства")
-        elseif h[3] and r.hps > h[3] then verdict = ns.Color("green", "выше большинства") end
-        L[4]:SetText("Хпс рейда: " .. ns.Color("white", ns.Compact(r.hps)) .. " — " .. verdict)
-        L[5]:SetText("сила — по " .. bench.n .. " " .. ns.Plural(bench.n, "рейду", "рейдам", "рейдам")
-            .. " сезона; опыт — рейды состава, танк x3, хил x2")
+    L[2]:SetText("Хпс рейда: " .. ns.Color("white", ns.Compact(r.hps)))
+    if r.ww > 0 then
+        L[3]:SetText("Убивают " .. (BOSS_GEN[boss] or ns.BOSS[boss]) .. ": " .. chanceText(r.kw / r.ww * 100)
+            .. ns.Color("grey", " рейдов состава"))
+        L[4]:SetText("Рейд без вайпов: " .. chanceText(r.cw / r.ww * 100) .. ns.Color("grey", " (вайпы на весь рейд)"))
     else
-        L[2]:SetText(ns.Color("grey", "Эталонов для «" .. ns.BOSS[boss] .. ", " .. ns.MODE_FULL[pick.mode] .. "» нет — мало рейдов в выгрузке"))
-        L[3]:SetText(r.ww > 0 and ("Шанс без вайпов по опыту: " .. chanceText(r.cw / r.ww * 100)) or "")
-        L[4]:SetText("Хпс рейда: " .. ns.Color("white", ns.Compact(r.hps)))
-        L[5]:SetText("")
+        L[3]:SetText(ns.Color("grey", "Никто из состава не ходил в " .. (ns.MODE_FULL[pick.mode] or pick.mode)))
+        L[4]:SetText("")
     end
+    L[5]:SetText("опыт состава: рейды на своём ilvl (до -2 от лучшего), танк x3, хил x2")
     local warn = {}
     if r.t < 2 then tinsert(warn, "танков " .. r.t .. " из 2") end
     if r.h < 5 then tinsert(warn, "хилов " .. r.h .. " из 5") end
@@ -272,9 +260,8 @@ local function renderPick()
     for i, b in ipairs(bossBtns) do
         local boss = rs and (i == 1 and "hal") or (not rs and ns.ICC_BOSSES[i])
         if boss then
-            b.boss:SetTexture(ns.BOSS_ICON[boss])
-            b.boss:SetTexCoord(0.08, 0.92, 0.08, 0.92)
-            ns.FitButton(b, ns.BOSS[boss] or boss, 32)
+            b:SetIcon(ns.BOSS_ICON[boss], ICON_CROP)
+            ns.FitButton(b, ns.BOSS[boss] or boss, 16)
             ns.SetButton(b, rs or pick.boss == i)
             b:Show()
         else
@@ -425,12 +412,6 @@ local function build(parent)
     for i, mode in ipairs(ns.MODES) do tiles[i] = buildTile(i, mode) end
     for i = 1, 3 do
         local b = ns.MakeButton(panel, 12, nil, 22)
-        b.boss = b:CreateTexture(nil, "OVERLAY")
-        b.boss:SetWidth(14)
-        b.boss:SetHeight(14)
-        b.boss:SetPoint("LEFT", b, "LEFT", 6, 0)
-        b.textX = 8
-        b.text:SetPoint("CENTER", b, "CENTER", 8, 0)
         b.index = i
         b.onClick = function(self)
             if not ns.IsRS(pick.mode) then setPick(nil, self.index) end

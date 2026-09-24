@@ -292,14 +292,16 @@ local function renderName(id, rec, shown, class, s)
     return y
 end
 
-local function renderSub(shown, class, s, y)
+local function renderSub(shown, class, s, y, id)
     local sub = {}
     local live = ns.LiveSpec and ns.LiveSpec(shown)
     local spec = live or (s and ns.SpecRu(s.spec))
     local icon = ns.SpecIcon(class, live or (s and s.spec))
     setIcon(card.sub, icon)
     if not icon and spec then tinsert(sub, spec) end
-    if s and s.gs then tinsert(sub, "илвл " .. s.gs) end
+    if s and s.gs then tinsert(sub, "ilvl " .. s.gs) end
+    local gsText = ns.GearScoreText and ns.GearScoreText(id)
+    if gsText then tinsert(sub, gsText) end
     if #sub == 0 and not icon then return y end
     card.sub:SetText(table.concat(sub, ", "))
     return math.max(placeLine(card.sub, y, INDENT, 1), icon and (y + 16) or 0)
@@ -422,7 +424,7 @@ local function render(info)
     local class = (rec and rec.class) or info.class
 
     local y = renderName(id, rec, shown, class, s)
-    y = renderSub(shown, class, s, y)
+    y = renderSub(shown, class, s, y, id)
     y = renderWas(info, id, rec, shown, y)
     paintAmbient(shown, class, s, y + 2)
 

@@ -5,6 +5,7 @@
 ## Author: dimondru
 ## Version: b10
 ## SavedVariables: PlayerRaidsDB, PlayerRaidsNotes, PlayerRaidsGuilds
+## OptionalDeps: GearScore
 
 Data.stub.lua
 Data.lua

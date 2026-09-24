@@ -411,7 +411,7 @@ end
 ns.ICC_LFG = "Interface\\LFGFrame\\LFGIcon-IcecrownCitadel"
 ns.RS_LFG = "Interface\\LFGFrame\\LFGIcon-RubySanctum"
 
-ns.DATA_URL = "https://gitlab.com/dmitrii.nosach/ManacodePlayerRaidsInfo/-/raw/data/Data.zip"
+ns.DATA_URL = "https://gitlab.com/dmitrii.nosach/ManacodePlayerRaidsInfo/-/tree/data"
 ns.COPY_TEX = "Interface\\Buttons\\UI-GuildButton-PublicNote-Up"
 ns.ARROW_DOWN_TEX = "Interface\\Buttons\\Arrow-Down-Up"
 ns.HERO_ICON = "Interface\\Icons\\Achievement_Boss_Lichking"
@@ -527,21 +527,66 @@ function ns.Ambient(f, classFile, base, amount, alpha)
     for _, t in pairs(g) do t:Show() end
 end
 
-local BTN_BACKDROP = {
-    bgFile = ns.WHITE, edgeFile = ns.WHITE, edgeSize = 1,
-    insets = { left = 1, right = 1, top = 1, bottom = 1 },
-}
+ns.ART = "Interface\\AddOns\\" .. ADDON .. "\\art\\"
+ns.BTN_FILL = ns.ART .. "btn_fill.tga"
+ns.BTN_EDGE = ns.ART .. "btn_edge.tga"
+ns.GLOW_TEX = ns.ART .. "glow.tga"
+
+local SLICE_UV = { 0, 0.25, 0.75, 1 }
+
+function ns.NineSlice(parent, layer, path, corner, uv)
+    uv = uv or SLICE_UV
+    local s = {}
+    for row = 1, 3 do
+        for col = 1, 3 do
+            local t = parent:CreateTexture(nil, layer)
+            t:SetTexture(path)
+            t:SetTexCoord(uv[col], uv[col + 1], uv[row], uv[row + 1])
+            s[#s + 1] = t
+        end
+    end
+    local tl, tc, tr, ml, mc, mr, bl, bc, br = s[1], s[2], s[3], s[4], s[5], s[6], s[7], s[8], s[9]
+    for _, t in ipairs({ tl, tr, bl, br }) do
+        t:SetWidth(corner)
+        t:SetHeight(corner)
+    end
+    tl:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, 0)
+    tr:SetPoint("TOPRIGHT", parent, "TOPRIGHT", 0, 0)
+    bl:SetPoint("BOTTOMLEFT", parent, "BOTTOMLEFT", 0, 0)
+    br:SetPoint("BOTTOMRIGHT", parent, "BOTTOMRIGHT", 0, 0)
+    tc:SetPoint("TOPLEFT", tl, "TOPRIGHT", 0, 0)
+    tc:SetPoint("BOTTOMRIGHT", tr, "BOTTOMLEFT", 0, 0)
+    bc:SetPoint("TOPLEFT", bl, "TOPRIGHT", 0, 0)
+    bc:SetPoint("BOTTOMRIGHT", br, "BOTTOMLEFT", 0, 0)
+    ml:SetPoint("TOPLEFT", tl, "BOTTOMLEFT", 0, 0)
+    ml:SetPoint("BOTTOMRIGHT", bl, "TOPRIGHT", 0, 0)
+    mr:SetPoint("TOPLEFT", tr, "BOTTOMLEFT", 0, 0)
+    mr:SetPoint("BOTTOMRIGHT", br, "TOPRIGHT", 0, 0)
+    mc:SetPoint("TOPLEFT", tl, "BOTTOMRIGHT", 0, 0)
+    mc:SetPoint("BOTTOMRIGHT", br, "TOPLEFT", 0, 0)
+    return s
+end
+
+function ns.SliceColor(s, r, g, b, a)
+    for i = 1, 9 do s[i]:SetVertexColor(r, g, b, a or 1) end
+end
+
+function ns.SliceBlend(s, mode)
+    for i = 1, 9 do s[i]:SetBlendMode(mode) end
+end
 
 ns.BTN = {
-    bg = { 0.18, 0.16, 0.12, 0.95 }, border = { 0.62, 0.52, 0.32, 1 }, text = { 0.9, 0.9, 0.9 },
-    bgHover = { 0.32, 0.26, 0.13, 0.97 }, borderHover = { 1, 0.84, 0.35, 1 }, textHover = { 1, 1, 1 },
-    bgDown = { 0.05, 0.045, 0.035, 1 },
-    bgOn = { 0.86, 0.68, 0.12, 1 }, bgOnHover = { 1, 0.82, 0.25, 1 }, borderOn = { 1, 0.9, 0.45, 1 },
-    textOn = { 0.1, 0.07, 0.02 },
-    bgOff = { 0.07, 0.065, 0.06, 0.85 }, borderOff = { 0.22, 0.22, 0.22, 1 }, textOff = { 0.36, 0.36, 0.36 },
-    bgOnOff = { 0.38, 0.30, 0.08, 0.9 }, textOnOff = { 0.8, 0.72, 0.5 },
+    bg = { 0.27, 0.24, 0.19, 0.96 }, border = { 0.56, 0.47, 0.30, 0.9 }, text = { 0.88, 0.86, 0.80 },
+    bgHover = { 0.38, 0.33, 0.22, 0.98 }, borderHover = { 0.95, 0.80, 0.42, 1 }, textHover = { 1, 1, 1 },
+    bgDown = { 0.15, 0.13, 0.10, 1 },
+    bgOn = { 0.50, 0.36, 0.09, 1 }, bgOnHover = { 0.60, 0.44, 0.12, 1 }, borderOn = { 1, 0.86, 0.42, 1 },
+    textOn = { 1, 0.97, 0.86 },
+    bgOff = { 0.13, 0.12, 0.11, 0.85 }, borderOff = { 0.28, 0.27, 0.25, 0.7 }, textOff = { 0.42, 0.42, 0.42 },
+    bgOnOff = { 0.30, 0.23, 0.08, 0.9 }, textOnOff = { 0.76, 0.68, 0.50 },
     textEmpty = { 0.62, 0.62, 0.64 },
 }
+
+local BTN_ICON, BTN_ICON_X, BTN_ICON_GAP = 14, 6, 4
 
 function ns.PaintButton(b)
     local c = ns.BTN
@@ -558,11 +603,12 @@ function ns.PaintButton(b)
     else
         bg, br, t = c.bg, c.border, (b.empty and c.textEmpty or c.text)
     end
-    b:SetBackdropColor(bg[1], bg[2], bg[3], bg[4])
-    b:SetBackdropBorderColor(br[1], br[2], br[3], br[4])
+    ns.SliceColor(b.fill, bg[1], bg[2], bg[3], bg[4])
+    ns.SliceColor(b.edge, br[1], br[2], br[3], br[4])
     if b.text then b.text:SetTextColor(t[1], t[2], t[3]) end
     if b.icon then
-        b.icon:SetVertexColor(t[1], t[2], t[3])
+        local k = b.off and 0.45 or 1
+        b.icon:SetVertexColor(k, k, k)
     end
 end
 
@@ -571,13 +617,37 @@ function ns.SetButton(b, on, off, empty)
     ns.PaintButton(b)
 end
 
+local function buttonText(self, dx, dy)
+    self.text:SetPoint("CENTER", self, "CENTER", (self.textX or 0) + dx, dy)
+end
+
+local function buttonIcon(self, path, coord)
+    if not self.icon then
+        self.icon = self:CreateTexture(nil, "OVERLAY")
+        self.icon:SetWidth(BTN_ICON)
+        self.icon:SetHeight(BTN_ICON)
+        self.icon:SetPoint("LEFT", self, "LEFT", BTN_ICON_X, 0)
+        self.textX = (BTN_ICON + BTN_ICON_GAP) / 2
+        buttonText(self, 0, 0)
+    end
+    self.icon:SetTexture(path)
+    if coord then
+        self.icon:SetTexCoord(coord[1], coord[2], coord[3], coord[4])
+    else
+        self.icon:SetTexCoord(0, 1, 0, 1)
+    end
+    ns.PaintButton(self)
+end
+
 function ns.MakeButton(parent, fontSize, w, h)
     local b = CreateFrame("Button", nil, parent)
     b:SetHeight(h or 20)
     if w then b:SetWidth(w) end
-    b:SetBackdrop(BTN_BACKDROP)
+    b.edge = ns.NineSlice(b, "BACKGROUND", ns.BTN_EDGE, 8)
+    b.fill = ns.NineSlice(b, "BORDER", ns.BTN_FILL, 8)
     b.text = ns.Text(b, fontSize or 13, "CENTER")
     b.text:SetPoint("CENTER", b, "CENTER", 0, 0)
+    b.SetIcon = buttonIcon
     b:SetScript("OnEnter", function(self)
         self.hovered = true
         ns.PaintButton(self)
@@ -585,19 +655,19 @@ function ns.MakeButton(parent, fontSize, w, h)
     end)
     b:SetScript("OnLeave", function(self)
         self.hovered, self.pressed = nil, nil
-        self.text:SetPoint("CENTER", self, "CENTER", self.textX or 0, 0)
+        buttonText(self, 0, 0)
         ns.PaintButton(self)
         if self.tip then GameTooltip:Hide() end
     end)
     b:SetScript("OnMouseDown", function(self)
         if self.off then return end
         self.pressed = true
-        self.text:SetPoint("CENTER", self, "CENTER", (self.textX or 0) + 1, -1)
+        buttonText(self, 1, -1)
         ns.PaintButton(self)
     end)
     b:SetScript("OnMouseUp", function(self)
         self.pressed = nil
-        self.text:SetPoint("CENTER", self, "CENTER", self.textX or 0, 0)
+        buttonText(self, 0, 0)
         ns.PaintButton(self)
     end)
     b:SetScript("OnClick", function(self, button)
@@ -610,7 +680,8 @@ end
 
 function ns.FitButton(b, text, pad)
     b.text:SetText(text)
-    b:SetWidth(math.floor((b.text:GetStringWidth() or 40) + (pad or 16)))
+    local extra = b.icon and (BTN_ICON + BTN_ICON_GAP) or 0
+    b:SetWidth(math.floor((b.text:GetStringWidth() or 40) + (pad or 16) + extra))
 end
 
 function ns.Tip(owner, anchor, title, ...)

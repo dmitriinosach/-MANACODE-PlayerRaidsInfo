@@ -682,6 +682,30 @@ function ns.PrevSeason()
     return nil
 end
 
+function ns.TopIlvl(blocks)
+    local top
+    for _, bl in ipairs(blocks) do
+        local s = bl.s
+        if s then
+            if s.gs and (not top or s.gs > top) then top = s.gs end
+            for _, list in pairs(s.byMode or {}) do
+                for _, raid in ipairs(list) do
+                    local il = ns.RaidIlvl(raid)
+                    if il and (not top or il > top) then top = il end
+                end
+            end
+        end
+    end
+    return top
+end
+
+function ns.StatBlocks(rec)
+    local cur, prev = ns.CurrentSeason(), ns.PrevSeason()
+    local blocks = { { sn = cur, s = rec and ns.SeasonOf(rec, cur) } }
+    if prev and rec then blocks[2] = { sn = prev, s = (ns.SeasonBlock(rec, prev)) } end
+    return blocks
+end
+
 function ns.RaidStat(rec, mode, bi)
     local out = {}
     if not rec then return out end
@@ -694,6 +718,27 @@ function ns.RaidStat(rec, mode, bi)
     end
     if not out.role and out.spec then out.role = ns.SpecRole(out.spec) end
     local role = out.role or "d"
+    local top = ns.TopIlvl(blocks)
+    if top then
+        local sum, n, mn, fromCur = 0, 0, nil, false
+        for _, bl in ipairs(blocks) do
+            for _, raid in ipairs(bl.s and bl.s.byMode[mode] or {}) do
+                local c = raid.cells[bi]
+                local il = ns.RaidIlvl(raid)
+                if c and c.value and c.role == role and (not il or il >= top - 2) then
+                    sum, n = sum + c.value, n + 1
+                    if not mn or c.value < mn then mn = c.value end
+                    if bl.sn == cur then fromCur = true end
+                end
+            end
+        end
+        if n > 0 then
+            out.avg, out.min, out.n, out.ilvl = floor(sum / n + 0.5), mn, n, top
+            if not fromCur and prev then out.season = prev end
+            return out
+        end
+    end
+    out.wide = true
     for _, b in ipairs(blocks) do
         local s = b.s
         if s then
