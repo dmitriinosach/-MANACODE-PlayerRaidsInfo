@@ -276,24 +276,9 @@ func (m *model) buildChoices() {
 		m.choices = append(m.choices, s)
 	}
 	m.cursor = 0
-	m.sel = map[int]bool{m.idx.Season: true}
-	switch {
-	case m.fromGame != nil:
-		for s := range m.fromGame {
-			m.sel[s] = true
-		}
-	case len(m.cfg.Seasons) > 0:
-		for _, s := range m.cfg.Seasons {
-			m.sel[s] = true
-		}
-	case m.cfg.SeasonsFrom != nil:
-		for s := m.idx.Season; s >= *m.cfg.SeasonsFrom; s-- {
-			m.sel[s] = true
-		}
-	default:
-		for _, s := range m.choices {
-			m.sel[s] = true
-		}
+	m.sel = map[int]bool{}
+	for _, s := range m.choices {
+		m.sel[s] = true
 	}
 }
 
