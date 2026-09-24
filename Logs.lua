@@ -682,95 +682,74 @@ function ns.PrevSeason()
     return nil
 end
 
-function ns.TopIlvl(blocks)
-    local top
-    for _, bl in ipairs(blocks) do
-        local s = bl.s
-        if s then
-            if s.gs and (not top or s.gs > top) then top = s.gs end
-            for _, list in pairs(s.byMode or {}) do
-                for _, raid in ipairs(list) do
-                    local il = ns.RaidIlvl(raid)
-                    if il and (not top or il > top) then top = il end
-                end
-            end
-        end
-    end
-    return top
-end
-
-function ns.PickByIlvl(list, top, need)
-    need = need or 3
-    table.sort(list, function(a, b) return a.il > b.il end)
+function ns.StatBlocks(rec)
     local out = {}
-    for i, e in ipairs(list) do
-        if e.il >= top - 2 or i <= need then tinsert(out, e) else break end
+    if not rec then return out end
+    local list = {}
+    for _, sn in ipairs(ns.Meta().seasons or {}) do
+        sn = tonumber(sn)
+        if sn then tinsert(list, sn) end
+    end
+    local cur = ns.CurrentSeason()
+    if cur and #list == 0 then list[1] = cur end
+    table.sort(list, function(x, y) return x > y end)
+    for _, sn in ipairs(list) do
+        local s = (sn == cur) and ns.SeasonOf(rec, sn) or (ns.SeasonBlock(rec, sn))
+        if s then tinsert(out, { sn = sn, s = s }) end
     end
     return out
 end
 
-function ns.StatBlocks(rec)
-    local cur, prev = ns.CurrentSeason(), ns.PrevSeason()
-    local blocks = { { sn = cur, s = rec and ns.SeasonOf(rec, cur) } }
-    if prev and rec then blocks[2] = { sn = prev, s = (ns.SeasonBlock(rec, prev)) } end
-    return blocks
+function ns.PickRecent(list, need, fill)
+    need, fill = need or 3, fill or 5
+    table.sort(list, function(x, y) return x.date > y.date end)
+    local out = {}
+    local ref = list[1] and list[1].il
+    local i = 1
+    while list[i] do
+        local e = list[i]
+        if ref and e.il and e.il < ref - 2 then break end
+        tinsert(out, e)
+        i = i + 1
+    end
+    if #out < need then
+        while list[i] and #out < fill do
+            tinsert(out, list[i])
+            i = i + 1
+        end
+    end
+    return out, ref
 end
 
 function ns.RaidStat(rec, mode, bi)
     local out = {}
     if not rec then return out end
-    local cur, prev = ns.CurrentSeason(), ns.PrevSeason()
-    local blocks = { { sn = cur, s = ns.SeasonOf(rec, cur) } }
-    if prev then blocks[2] = { sn = prev, s = (ns.SeasonBlock(rec, prev)) } end
+    local cur = ns.CurrentSeason()
+    local blocks = ns.StatBlocks(rec)
     for _, b in ipairs(blocks) do
-        if b.s and not out.role then out.role = roleIn(b.s, mode) end
-        if b.s and not out.spec then out.spec = b.s.spec end
+        if not out.role then out.role = roleIn(b.s, mode) end
+        if not out.spec then out.spec = b.s.spec end
     end
     if not out.role and out.spec then out.role = ns.SpecRole(out.spec) end
     local role = out.role or "d"
-    local top = ns.TopIlvl(blocks)
-    if top then
-        local list = {}
-        for _, bl in ipairs(blocks) do
-            for _, raid in ipairs(bl.s and bl.s.byMode[mode] or {}) do
-                local c = raid.cells[bi]
-                if c and c.value and c.role == role then
-                    tinsert(list, { v = c.value, il = ns.RaidIlvl(raid) or top, cur = bl.sn == cur })
-                end
-            end
-        end
-        local picked = ns.PickByIlvl(list, top)
-        if #picked > 0 then
-            local sum, mn, fromCur, low = 0, nil, false, top
-            for _, e in ipairs(picked) do
-                sum = sum + e.v
-                if not mn or e.v < mn then mn = e.v end
-                if e.cur then fromCur = true end
-                if e.il < low then low = e.il end
-            end
-            out.avg, out.min, out.n, out.ilvl, out.ilvlLow = floor(sum / #picked + 0.5), mn, #picked, top, low
-            if not fromCur and prev then out.season = prev end
-            return out
-        end
-    end
-    out.wide = true
-    for _, b in ipairs(blocks) do
-        local s = b.s
-        if s then
-            local sum, n, mn = 0, 0, nil
-            for _, raid in ipairs(s.byMode[mode] or {}) do
-                local c = raid.cells[bi]
-                if c and c.value and c.role == role then
-                    sum, n = sum + c.value, n + 1
-                    if not mn or c.value < mn then mn = c.value end
-                end
-            end
-            if n > 0 then
-                out.avg, out.min, out.n = floor(sum / n + 0.5), mn, n
-                if b.sn ~= cur then out.season = b.sn end
-                return out
+    local list = {}
+    for _, bl in ipairs(blocks) do
+        for _, raid in ipairs(bl.s.byMode[mode] or {}) do
+            local c = raid.cells[bi]
+            if c and c.value and c.role == role then
+                tinsert(list, { v = c.value, il = ns.RaidIlvl(raid), date = tonumber(raid.date) or 0, sn = bl.sn })
             end
         end
     end
+    local picked, ref = ns.PickRecent(list)
+    if #picked == 0 then return out end
+    local sum, mn, low = 0, nil, nil
+    for _, e in ipairs(picked) do
+        sum = sum + e.v
+        if not mn or e.v < mn then mn = e.v end
+        if e.il and (not low or e.il < low) then low = e.il end
+    end
+    out.avg, out.min, out.n, out.ilvl, out.ilvlLow = floor(sum / #picked + 0.5), mn, #picked, ref, low
+    if picked[1].sn ~= cur then out.season = picked[1].sn end
     return out
 end

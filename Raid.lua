@@ -191,15 +191,13 @@ local ROLE_WEIGHT = { t = 3, h = 2, d = 1 }
 
 local function experience(rec, mode, bi)
     if not rec then return nil end
-    local blocks = ns.StatBlocks(rec)
-    local top = ns.TopIlvl(blocks)
     local list = {}
-    for _, bl in ipairs(blocks) do
-        for _, raid in ipairs(bl.s and bl.s.byMode[mode] or {}) do
-            tinsert(list, { il = ns.RaidIlvl(raid) or top or 0, raid = raid })
+    for _, bl in ipairs(ns.StatBlocks(rec)) do
+        for _, raid in ipairs(bl.s.byMode[mode] or {}) do
+            tinsert(list, { il = ns.RaidIlvl(raid), date = tonumber(raid.date) or 0, raid = raid })
         end
     end
-    local picked = ns.PickByIlvl(list, top or 0)
+    local picked = ns.PickRecent(list)
     local total, killed, clean = #picked, 0, 0
     for _, e in ipairs(picked) do
         if e.raid.cells[bi] then killed = killed + 1 end
