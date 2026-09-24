@@ -101,6 +101,19 @@ local function statFor(m)
     return st
 end
 
+local ALT_MODES = { ih = { "iu", "in" }, iu = { "ih", "in" }, ["in"] = { "ih", "iu" }, rh = { "rn" }, rn = { "rh" } }
+local ALT_LABEL = { ih = "в гер", iu = "в анбафе", ["in"] = "в об", rh = "в гер", rn = "в об" }
+
+local function altStat(rec)
+    if not rec then return nil end
+    local bi = ns.IsRS(pick.mode) and 1 or pick.boss
+    for _, mode in ipairs(ALT_MODES[pick.mode] or {}) do
+        local st = ns.RaidStat(rec, mode, bi)
+        if st.avg then return st, ALT_LABEL[mode] end
+    end
+    return nil
+end
+
 local function buildList()
     list = {}
     local groups = { t = {}, h = {}, d = {} }
@@ -154,7 +167,12 @@ local function updateRows()
                 row.avg:SetText(valueText(st.avg, st.season))
                 row.min:SetText(ns.Color("grey", ns.Compact(st.min)))
             else
-                row.avg:SetText(ns.Color("grey", "нет данных"))
+                local alt, label = altStat(st.rec)
+                if alt then
+                    row.avg:SetText(ns.Color("dim", ns.Compact(alt.avg) .. " " .. label))
+                else
+                    row.avg:SetText(ns.Color("grey", "нет данных"))
+                end
                 row.min:SetText("")
             end
             row.name:Show(); row.avg:Show(); row.min:Show()
