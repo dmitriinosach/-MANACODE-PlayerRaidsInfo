@@ -717,6 +717,7 @@ local function renderHeader(rec, shown, s, subText)
     if subW > 0 then x = x + subW + 8 end
 
     local lastText = (s and s.last and s.last ~= "") and ("последний рейд " .. ns.DayMonthYear(s.last)) or ""
+    right.last:SetWidth(600)
     right.last:SetText(lastText)
     local lastW = lastText ~= "" and math.floor((right.last:GetStringWidth() or 0) + 2) or 0
     x = x + renderGuild(x, rowMax - x - (lastW > 0 and lastW + 8 or 0))

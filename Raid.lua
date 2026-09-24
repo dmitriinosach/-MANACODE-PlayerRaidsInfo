@@ -175,16 +175,17 @@ local function experience(rec, mode, bi)
     if not rec then return nil end
     local blocks = ns.StatBlocks(rec)
     local top = ns.TopIlvl(blocks)
-    local total, killed, clean = 0, 0, 0
+    local list = {}
     for _, bl in ipairs(blocks) do
         for _, raid in ipairs(bl.s and bl.s.byMode[mode] or {}) do
-            local il = ns.RaidIlvl(raid)
-            if not top or not il or il >= top - 2 then
-                total = total + 1
-                if raid.cells[bi] then killed = killed + 1 end
-                if raid.wipes == 0 then clean = clean + 1 end
-            end
+            tinsert(list, { il = ns.RaidIlvl(raid) or top or 0, raid = raid })
         end
+    end
+    local picked = ns.PickByIlvl(list, top or 0)
+    local total, killed, clean = #picked, 0, 0
+    for _, e in ipairs(picked) do
+        if e.raid.cells[bi] then killed = killed + 1 end
+        if e.raid.wipes == 0 then clean = clean + 1 end
     end
     if total == 0 then return nil end
     return killed / total, clean / total

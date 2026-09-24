@@ -699,6 +699,16 @@ function ns.TopIlvl(blocks)
     return top
 end
 
+function ns.PickByIlvl(list, top, need)
+    need = need or 3
+    table.sort(list, function(a, b) return a.il > b.il end)
+    local out = {}
+    for i, e in ipairs(list) do
+        if e.il >= top - 2 or i <= need then tinsert(out, e) else break end
+    end
+    return out
+end
+
 function ns.StatBlocks(rec)
     local cur, prev = ns.CurrentSeason(), ns.PrevSeason()
     local blocks = { { sn = cur, s = rec and ns.SeasonOf(rec, cur) } }
@@ -720,20 +730,25 @@ function ns.RaidStat(rec, mode, bi)
     local role = out.role or "d"
     local top = ns.TopIlvl(blocks)
     if top then
-        local sum, n, mn, fromCur = 0, 0, nil, false
+        local list = {}
         for _, bl in ipairs(blocks) do
             for _, raid in ipairs(bl.s and bl.s.byMode[mode] or {}) do
                 local c = raid.cells[bi]
-                local il = ns.RaidIlvl(raid)
-                if c and c.value and c.role == role and (not il or il >= top - 2) then
-                    sum, n = sum + c.value, n + 1
-                    if not mn or c.value < mn then mn = c.value end
-                    if bl.sn == cur then fromCur = true end
+                if c and c.value and c.role == role then
+                    tinsert(list, { v = c.value, il = ns.RaidIlvl(raid) or top, cur = bl.sn == cur })
                 end
             end
         end
-        if n > 0 then
-            out.avg, out.min, out.n, out.ilvl = floor(sum / n + 0.5), mn, n, top
+        local picked = ns.PickByIlvl(list, top)
+        if #picked > 0 then
+            local sum, mn, fromCur, low = 0, nil, false, top
+            for _, e in ipairs(picked) do
+                sum = sum + e.v
+                if not mn or e.v < mn then mn = e.v end
+                if e.cur then fromCur = true end
+                if e.il < low then low = e.il end
+            end
+            out.avg, out.min, out.n, out.ilvl, out.ilvlLow = floor(sum / #picked + 0.5), mn, #picked, top, low
             if not fromCur and prev then out.season = prev end
             return out
         end

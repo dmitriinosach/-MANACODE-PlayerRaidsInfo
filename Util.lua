@@ -755,15 +755,26 @@ local function buildCopy()
             self:HighlightText()
         end
     end)
+    pcall(eb.SetScript, eb, "OnKeyDown", function(self, key)
+        if key == "C" and IsControlKeyDown() then
+            copy.hint:SetText(ns.Color("green", "Скопировано"))
+            copy.hideAt = GetTime() + 0.8
+        end
+    end)
+    copy:SetScript("OnUpdate", function(self)
+        if self.hideAt and GetTime() >= self.hideAt then
+            self.hideAt = nil
+            self:Hide()
+        end
+    end)
     copy:SetScript("OnHide", function()
-        copy.value = nil
+        copy.value, copy.hideAt = nil, nil
         eb:ClearFocus()
     end)
     copy.box = eb
     copy.hint = ns.Text(copy, 12)
     copy.hint:SetTextColor(0.62, 0.62, 0.62)
     copy.hint:SetPoint("BOTTOMLEFT", copy, "BOTTOMLEFT", 11, 9)
-    copy.hint:SetText("Ctrl+C — скопировать, Esc — закрыть")
 end
 
 function ns.ShowCopy(anchor, text, width)
@@ -777,6 +788,7 @@ function ns.ShowCopy(anchor, text, width)
     copy:ClearAllPoints()
     copy:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", -8, -3)
     copy:Show()
+    copy.hint:SetText("Ник выделен, нажмите Ctrl+C")
     copy.value = text
     copy.box:SetText(text)
     copy.box:SetFocus()
