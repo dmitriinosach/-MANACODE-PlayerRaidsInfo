@@ -73,6 +73,7 @@ local function parseSeason(block)
     for i, mode in ipairs(ns.MODES) do s.raids[mode] = tonumber(r[i]) or 0 end
     s.recent, s.byMode = parseRaids(list, s.season)
     s.hist = parseHistory(kills)
+    for _, raid in ipairs(s.recent) do raid.spec = s.spec end
     s.bestT = parseBest(bt)
     s.roleKills = {}
     for mode, d, h, t in gmatch(roles or "", "(%a+)%.(%d+)%.(%d+)%.(%d+)") do
@@ -349,7 +350,7 @@ function ns.GameRename(id, rec)
     return nil
 end
 
-local HIST_SHORT = { ih = "25г", iu = "25г/а", ["in"] = "25о", rh = "25г", rn = "25о" }
+local HIST_SHORT = { ih = "25 гер", iu = "25 анбаф", ["in"] = "25 об", rh = "25 гер", rn = "25 об" }
 
 function ns.HistLine(rec)
     if not rec or not rec.hist then return nil end

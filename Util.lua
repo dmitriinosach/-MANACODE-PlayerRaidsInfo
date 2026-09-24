@@ -409,18 +409,36 @@ function ns.SpecArt(classFile, spec)
     return ns.ArtPath(specs[key])
 end
 
-function ns.PaintArt(tex, path, w, h)
+function ns.PaintArt(tex, path, w, h, alpha)
     if not path then
         tex:Hide()
         return
     end
     tex:SetTexture(path)
-    local frac = 0.25
+    local frac = 0.3
     if w and w > 0 and h then frac = math.min(h / w, 1) end
-    local top = 0.2
+    local top = 0.12
     if top + frac > 1 then top = 1 - frac end
     tex:SetTexCoord(0, 1, top, top + frac)
-    tex:SetGradientAlpha("HORIZONTAL", 0.8, 0.8, 0.8, 0.04, 0.8, 0.8, 0.8, 0.34)
+    local a = alpha or 0.5
+    tex:SetGradientAlpha("HORIZONTAL", 0.9, 0.9, 0.9, 0, 0.9, 0.9, 0.9, a)
+    tex:Show()
+end
+
+function ns.AmbientRGB(classFile)
+    local r, g, b = ns.ClassColor(classFile)
+    if r > 0.9 and g > 0.9 and b > 0.9 then return 0.7, 0.75, 0.84 end
+    return r, g, b
+end
+
+function ns.PaintWash(tex, classFile, a1, a2, orient)
+    if not ns.HasClass(classFile) then
+        tex:Hide()
+        return
+    end
+    local r, g, b = ns.AmbientRGB(classFile)
+    tex:SetTexture(ns.WHITE)
+    tex:SetGradientAlpha(orient or "HORIZONTAL", r, g, b, a1, r, g, b, a2)
     tex:Show()
 end
 
@@ -454,11 +472,11 @@ function ns.Ambient(f, classFile, base, amount, alpha)
         if g then for _, t in pairs(g) do t:Hide() end end
         return
     end
-    local r, gr, b = ns.ClassColor(classFile)
+    local r, gr, b = ns.AmbientRGB(classFile)
     local k = amount or 0.55
     f:SetBackdropBorderColor(base[1] * (1 - k) + r * k, base[2] * (1 - k) + gr * k, base[3] * (1 - k) + b * k, 1)
     if not g then return end
-    local a = alpha or 0.14
+    local a = alpha or 0.2
     g.TOP:SetGradientAlpha("VERTICAL", r, gr, b, 0, r, gr, b, a)
     g.BOTTOM:SetGradientAlpha("VERTICAL", r, gr, b, a, r, gr, b, 0)
     g.LEFT:SetGradientAlpha("HORIZONTAL", r, gr, b, a, r, gr, b, 0)
@@ -559,6 +577,20 @@ function ns.Tip(owner, anchor, title, ...)
         local l = select(i, ...)
         if l then GameTooltip:AddLine(l, 0.9, 0.9, 0.9, 1) end
     end
+    GameTooltip:Show()
+end
+
+function ns.TipTable(owner, anchor, title, rows, foot)
+    GameTooltip:SetOwner(owner, anchor or "ANCHOR_TOP")
+    GameTooltip:SetText(title, 1, 0.82, 0)
+    for _, r in ipairs(rows or {}) do
+        if type(r) == "table" then
+            GameTooltip:AddDoubleLine(r[1], tostring(r[2]), 0.8, 0.8, 0.8, 1, 1, 1)
+        else
+            GameTooltip:AddLine(r, 0.9, 0.9, 0.9, 1)
+        end
+    end
+    if foot then GameTooltip:AddLine(foot, 0.5, 0.52, 0.55, 1) end
     GameTooltip:Show()
 end
 

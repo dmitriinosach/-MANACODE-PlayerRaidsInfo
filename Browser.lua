@@ -1,23 +1,23 @@
 local ADDON, ns = ...
 
-local MIN_W, MIN_H = 720, 570
+local MIN_W, MIN_H = 720, 540
 local LEFT_W = 180
 local LROW_H = 17
 local LIST_TOP = 110
 local RX = 238
-local RROW_H = 30
+local RROW_H = 20
 local BOTTOM = 34
 local GAP = 8
-local BAR_W = 34
 local TILE, TILE_STEP = 44, 50
 local SEARCH_LIMIT = 200
 local RECENT_LIMIT = 50
-local HEAD_Y, HEAD_H = 36, 68
+local HEAD_Y, HEAD_H = 36, 80
 local SEASON_W = 24
 local ALL_W = 38
 local ALL = "all"
-local BOSS_X = 170
-local ROLE_W = 58
+local BOSS_X = 214
+local TCOLS = { { 0, 18, "RIGHT" }, { 22, 46, "CENTER" }, { 72, 44, "LEFT" }, { 120, 46, "CENTER" }, { 170, 40, "CENTER" } }
+local HEAD_TOP = 36
 local PANEL_BORDER = { 0.43, 0.35, 0.2 }
 local EDGE = { 0.4, 0.4, 0.42 }
 local EDGE_UNBUFF = { 1, 0.15, 0.1 }
@@ -26,7 +26,7 @@ local HIST_X = 5 * TILE_STEP + 12 + 10
 local GEAR_TITLE = "Парс на гире"
 local GEAR_TIP = "Место среди игроков того же спека с таким же уровнем предметов (±2)."
 local GEAR_EMPTY = "Пусто — таких килов меньше 20."
-local HEAD_KEYS = { nil, "date", "wipes", "ilvl", "b1", "b2", "b3" }
+local HEAD_KEYS = { nil, "season", "date", "wipes", "ilvl", "b1", "b2", "b3" }
 local ARROW_UP = "|TInterface\\Buttons\\Arrow-Up-Up:12:12:0:-3|t"
 local ARROW_DOWN = "|TInterface\\Buttons\\Arrow-Down-Up:12:12:0:-3|t"
 local THIN = {
@@ -58,7 +58,17 @@ local function place(obj, x, y)
 end
 
 local function gearTip(owner)
-    ns.Tip(owner, "ANCHOR_TOP", GEAR_TITLE, GEAR_TIP, GEAR_EMPTY)
+    ns.TipTable(owner, "ANCHOR_TOP", GEAR_TITLE, { GEAR_TIP }, GEAR_EMPTY)
+end
+
+local function seasonCaption()
+    if state.season == ALL then return "все сезоны" end
+    return "сезон " .. tostring(state.season)
+end
+
+local function parseCode(p)
+    if not p then return ns.Color("none", "—") end
+    return "|cff" .. ns.ParseHex(p) .. p .. "|r"
 end
 
 local function sortOpt()
@@ -75,6 +85,7 @@ end
 
 local function sortValue(raid, key)
     if key == "date" then return tonumber(raid.date) end
+    if key == "season" then return raid.season end
     if key == "wipes" then return raid.wipes end
     if key == "ilvl" then return ns.RaidIlvl(raid) end
     if key == "best" then
@@ -193,46 +204,60 @@ local function fillLeft()
     updateLeft()
 end
 
-local function setBar(bar, cell)
-    if cell and cell.parse then
-        bar.bg:Show()
-        local fw = math.floor(BAR_W * math.min(cell.parse, 100) / 100 + 0.5)
-        if fw > 0 then
-            bar.fill:SetWidth(fw)
-            bar.fill:SetVertexColor(ns.ParseRGB(cell.parse))
-            bar.fill:Show()
-        else
-            bar.fill:Hide()
-        end
-    else
-        bar.bg:Hide()
-        bar.fill:Hide()
-    end
-end
-
 local function showRaidRow(row, on)
     for _, fs in ipairs(row.cols) do
         if on then fs:Show() else fs:Hide() end
     end
     for _, cs in ipairs(row.cells) do
-        if on then
-            cs.top:Show()
-            cs.bot:Show()
-        else
-            cs.top:Hide()
-            cs.bot:Hide()
-            cs.bar.bg:Hide()
-            cs.bar.fill:Hide()
+        for _, o in ipairs({ cs.val, cs.par, cs.gear, cs.btn }) do
+            if on then o:Show() else o:Hide() end
         end
     end
     if on then row.sep:Hide() else row.sep:Show() end
+end
+
+local function parseCol(p)
+    if not p then return ns.Color("none", "—") end
+    return "|cff" .. ns.ParseHex(p) .. p .. "|r"
+end
+
+local function fillCell(cs, cell, raid, b)
+    cs.btn.raid, cs.btn.b = raid, b
+    if not cell then
+        cs.val:SetText(ns.Color("none", "—"))
+        cs.par:SetText("")
+        cs.gear:SetText("")
+        cs.btn.raid = nil
+        return
+    end
+    local v = cell.value and ns.Color("white", ns.Compact(cell.value)) or ns.Color("grey", "танк")
+    cs.val:SetText(ns.RoleIcon(cell.role, 12) .. " " .. v)
+    cs.par:SetText(parseCol(cell.parse))
+    cs.gear:SetText(parseCol(cell.gear))
+end
+
+local function cellTip(self)
+    local raid, b = self.raid, self.b
+    local cell = raid and raid.cells[b]
+    if not cell then return end
+    local boss = ns.BossesOf(raid.mode)[b]
+    local rows = { { "Дата", ns.DayMonthYearFull(raid.date) } }
+    local role = ({ d = "Урон", h = "Исцеление", t = "Танк, урон" })[cell.role] or "Значение"
+    tinsert(rows, { role, cell.value and (ns.Compact(cell.value) .. (cell.role == "h" and " хпс" or " дпс")) or "—" })
+    tinsert(rows, { "Парс среди всех", parseCode(cell.parse) })
+    tinsert(rows, { "Парс на своём гире", cell.gear and parseCode(cell.gear) or ns.Color("grey", "мало данных") })
+    local ctx = {}
+    local spec = ns.SpecRu(raid.spec)
+    if spec then tinsert(ctx, spec) end
+    if cell.ilvl then tinsert(ctx, "илвл " .. cell.ilvl .. "±2") end
+    ns.TipTable(self, "ANCHOR_TOP", (ns.BOSS[boss] or boss) .. " — " .. (ns.MODE_FULL[raid.mode] or raid.mode), rows,
+        #ctx > 0 and ("на гире: " .. table.concat(ctx, ", ")) or nil)
 end
 
 local function updateRaids()
     local offset = FauxScrollFrame_GetOffset(rscroll) or 0
     local rs = ns.IsRS(state.mode)
     local tableShown = rscroll:IsShown()
-    local tagSeason = state.season == ALL and sortOpt() ~= "date"
     for i, row in ipairs(rrows) do
         local raid = tableShown and i <= size.rrows and raids[offset + i]
         if raid and raid.sep then
@@ -244,22 +269,17 @@ local function updateRaids()
             showRaidRow(row, true)
             local c = row.cols
             c[1]:SetText(ns.Color("dim", nums[offset + i] or ""))
-            local date = ns.Color("grey", ns.DayMonthYear(raid.date))
-            if tagSeason and raid.season then date = date .. ns.Color("dim", " с" .. raid.season) end
-            c[2]:SetText(date)
-            c[3]:SetText(ns.WipesText(raid.wipes))
+            c[2]:SetText(ns.Color("note", raid.season or ""))
+            c[3]:SetText(ns.Color("grey", ns.DayMonthYear(raid.date)))
+            c[4]:SetText(ns.WipesText(raid.wipes))
             local il = ns.RaidIlvl(raid)
-            c[4]:SetText(il and ns.Color("white", il) or ns.Color("none", "—"))
+            c[5]:SetText(il and ns.Color("white", il) or ns.Color("none", "—"))
             for b = 1, 3 do
-                local cell, cs = raid.cells[b], row.cells[b]
+                local cs = row.cells[b]
                 if rs and b > 1 then
-                    cs.top:SetText("")
-                    cs.bot:SetText("")
-                    setBar(cs.bar, nil)
+                    for _, o in ipairs({ cs.val, cs.par, cs.gear, cs.btn }) do o:Hide() end
                 else
-                    cs.top:SetText(ns.CellMain(cell))
-                    cs.bot:SetText(ns.CellSub(cell))
-                    setBar(cs.bar, cell)
+                    fillCell(cs, raid.cells[b], raid, b)
                 end
             end
             if (nums[offset + i] or 0) % 2 == 1 then row.odd:Show() else row.odd:Hide() end
@@ -291,6 +311,7 @@ local function styleTile(tile, mode, n, on)
         edge = empty and EDGE_UNBUFF_EMPTY or EDGE_UNBUFF
     end
     tile:SetBackdropBorderColor(edge[1], edge[2], edge[3], 1)
+    tile.count = n
     if on then tile.mark:Show() else tile.mark:Hide() end
     if empty then
         tile.caption:SetText(ns.Color("none", n))
@@ -302,6 +323,7 @@ local function styleTile(tile, mode, n, on)
 end
 
 local function tileFill(t, b, role)
+    t.best, t.role = b, role
     if b and b.parse then
         t.big:SetText("|cff" .. ns.ParseHex(b.parse) .. b.parse .. "|r")
         local bits = {}
@@ -343,26 +365,45 @@ local function renderCrest(class, shown)
     end
 end
 
-local function renderHistory(rec, s)
+local function killLine(fs, icon, n)
+    fs:SetText(icon .. "  " .. n)
+    if n > 0 then fs:SetTextColor(0.95, 0.95, 0.95) else fs:SetTextColor(0.36, 0.37, 0.4) end
+end
+
+local function renderKills(rec, s)
+    local kt = right.killTile
     local bosses = ns.BossesOf(state.mode)
     local src = s and s.hist
     if state.season == ALL then src = rec and rec.hist end
     local hist = src and src[state.mode] or {}
-    for i, fs in ipairs(right.hist) do
+    kt.bossRows = {}
+    for i, fs in ipairs(kt.boss) do
         local boss = bosses[i]
         if boss then
             local h = hist[boss]
-            local icon = string.format("|T%s:14:14:0:0:64:64:5:59:5:59|t ", ns.BOSS_ICON[boss])
-            if h and (h.kills or 0) > 0 then
-                fs:SetText(icon .. ns.Color("white", "×" .. h.kills) .. ns.Color("grey", "  первый " .. ns.DayMonthYearFull(h.first)))
-            else
-                fs:SetText(icon .. ns.Color("none", "—"))
-            end
+            local n = h and h.kills or 0
+            killLine(fs, string.format("|T%s:14:14:0:0:64:64:5:59:5:59|t", ns.BOSS_ICON[boss]), n)
+            tinsert(kt.bossRows, { ns.BOSS[boss], n })
             fs:Show()
         else
             fs:Hide()
         end
     end
+    local k = s and s.roleKills and s.roleKills[state.mode] or {}
+    kt.roleRows = {}
+    for i, role in ipairs({ "d", "h", "t" }) do
+        local n = k[role] or 0
+        killLine(kt.role[i], ns.RoleIcon(role, 14), n)
+        tinsert(kt.roleRows, { ({ "ДД", "Хил", "Танк" })[i], n })
+    end
+end
+
+local function killTip(self)
+    local rows = {}
+    for _, r in ipairs(self.bossRows or {}) do tinsert(rows, r) end
+    for _, r in ipairs(self.roleRows or {}) do tinsert(rows, r) end
+    local foot = state.season == ALL and "по всем килам, все сезоны" or "по всем килам сезона"
+    ns.TipTable(self, "ANCHOR_TOP", "Убито боссов — " .. (ns.MODE_FULL[state.mode] or state.mode) .. ", " .. seasonCaption(), rows, foot)
 end
 
 local function renderNote()
@@ -384,14 +425,14 @@ local function renderAka(others)
         local text = ns.Color("grey", "также известен как ") .. "|cffbfbfd9" .. others[1] .. "|r"
         if #others > 1 then text = text .. " " .. ns.Color("gold", "+" .. (#others - 1)) end
         fitLine(names, text, size.rw - 44 - 110)
-        place(names, RX + 44, 82)
+        place(names, RX + 44, 95)
         names:Show()
     else
         names:Hide()
     end
 end
 
-local function renderGuild(anchor, used)
+local function renderGuild()
     local guild = right.guild
     local e = ns.GuildOf(state.id)
     if not e or e.cur == nil then
@@ -402,17 +443,16 @@ local function renderGuild(anchor, used)
     for g in pairs(e.hist or {}) do
         if g ~= e.cur then past = past + 1 end
     end
-    local maxW = math.max(size.rw - used - 150, 50)
+    local maxW = math.max(size.rw - 44 - 170, 60)
     if e.cur then
         guild.text:SetTextColor(0.25, 1, 0.25)
-        ns.FitText(guild.text, "<" .. e.cur .. ">", maxW - (past > 0 and 22 or 0))
+        ns.FitText(guild.text, e.cur, maxW - (past > 0 and 22 or 0))
     else
         guild.text:SetTextColor(0.62, 0.62, 0.62)
         guild.text:SetText("без гильдии")
     end
     if past > 0 then guild.text:SetText(guild.text:GetText() .. " " .. ns.Color("gold", "+" .. past)) end
-    guild:ClearAllPoints()
-    guild:SetPoint("LEFT", anchor, "RIGHT", 8, 0)
+    place(guild, RX + 44, 62)
     guild:SetWidth(math.floor((guild.text:GetStringWidth() or 40) + 4))
     guild:Show()
 end
@@ -422,30 +462,22 @@ local function renderNameLine(rec, shown)
     right.copy:ClearAllPoints()
     right.copy:SetPoint("LEFT", right.name, "RIGHT", 5, 0)
     right.copy:Show()
-    local used = 44 + (right.name:GetStringWidth() or 80) + 5 + 16
-    local anchor = right.copy
     local hero = rec and ns.HeroDate(rec)
     right.hero.date = hero
     if hero then
         right.hero:ClearAllPoints()
         right.hero:SetPoint("LEFT", right.copy, "RIGHT", 6, 0)
         right.hero:Show()
-        anchor = right.hero
-        used = used + 6 + right.hero:GetWidth()
     else
         right.hero:Hide()
     end
-    renderGuild(anchor, used)
-end
-
-local function seasonCaption()
-    if state.season == ALL then return "все сезоны" end
-    return "сезон " .. tostring(state.season)
+    renderGuild()
 end
 
 local function renderGearTile(s)
     local t = right.tiles[4]
-    local med = ns.GearMedian(s, state.mode)
+    local med, medN = ns.GearMedian(s, state.mode)
+    t.med, t.medN = med, medN
     if not med then
         t:Hide()
         return
@@ -459,22 +491,23 @@ end
 
 local function renderHeader(rec, shown, s)
     renderCrest(rec.class, shown)
-    right.name:SetText(shown)
+    local title = ns.TitleOf(state.id)
+    right.name:SetText(title and (shown .. "|cffe8e8e8, " .. title .. "|r") or shown)
     right.name:SetTextColor(ns.ClassColor(rec.class))
     right.last:SetText((s and s.last and s.last ~= "") and ("последний рейд " .. ns.DayMonthYear(s.last)) or "")
 
     local sub = {}
-    local title = ns.TitleOf(state.id)
-    if title then tinsert(sub, ns.Color("grey", title)) end
     local spec = ns.LiveSpec and ns.LiveSpec(shown)
     if not spec and s then spec = ns.SpecRu(s.spec) end
     if spec then tinsert(sub, spec) end
     if s and s.gs then tinsert(sub, "илвл " .. s.gs) end
     right.sub:SetText(table.concat(sub, ns.Color("dim", ", ")))
 
-    ns.Ambient(frame, rec.class, PANEL_BORDER, 0.5, 0.1)
-    local r, g, b = ns.ClassColor(rec.class)
+    ns.Ambient(frame, rec.class, PANEL_BORDER, 0.65, 0.22)
+    local r, g, b = ns.AmbientRGB(rec.class)
     right.bandLine:SetVertexColor(r, g, b, 0.45)
+    ns.PaintWash(right.wash, rec.class, 0.35, 0)
+    ns.PaintWash(right.stripe, rec.class, 0.9, 0.12)
     local anySpec = (s and s.spec) or (rec.seasons[1] and rec.seasons[1].spec)
     state.art = ns.ArtFor(shown, rec.class, anySpec)
 
@@ -544,21 +577,24 @@ local function renderSeasons(rec)
     ns.PaintButton(right.seasonDrop)
 end
 
-local function renderRoles(s)
-    local box = right.roleBox
-    local k = s and s.roleKills and s.roleKills[state.mode]
-    if not k then
-        box:Hide()
+local function tileTip(self)
+    if self.med then
+        ns.TipTable(self, "ANCHOR_TOP", "На своём гире", { GEAR_TIP, { "Медиана парса", parseCode(self.med) }, { "Килов учтено", self.medN or 0 } },
+            (ns.MODE_FULL[state.mode] or state.mode) .. ", " .. seasonCaption())
         return
     end
-    for i, role in ipairs({ "d", "h", "t" }) do
-        local n = k[role] or 0
-        local fs = box.lines[i]
-        fs:SetText(ns.RoleIcon(role, 14) .. " " .. n)
-        if n > 0 then fs:SetTextColor(0.95, 0.95, 0.95) else fs:SetTextColor(0.35, 0.36, 0.38) end
-        fs:SetAlpha(n > 0 and 1 or 0.55)
+    local b = self.best
+    if not b then return end
+    local rows = {
+        { "Парс", parseCode(b.parse) },
+        { "Босс", ns.BOSS[b.boss] or b.boss or "—" },
+        { "Сложность", ns.MODE_FULL[b.mode] or b.mode or "—" },
+        { "Дата", ns.DayMonthYearFull(b.date) },
+    }
+    if b.value then
+        tinsert(rows, { self.role == "h" and "Исцеление" or "Урон", ns.Compact(b.value) .. (self.role == "h" and " хпс" or " дпс") })
     end
-    box:Show()
+    ns.TipTable(self, "ANCHOR_TOP", self.k:GetText() or "", rows, seasonCaption())
 end
 
 local function renderTiles(rec, s)
@@ -581,57 +617,66 @@ local function renderTiles(rec, s)
         right.tiles[1]:Show()
     end
     renderGearTile(s)
-    renderRoles(s)
     for i, mode in ipairs(ns.MODES) do
         styleTile(right.tiles5[i], mode, s and s.raids[mode] or 0, state.mode == mode)
     end
 end
 
+local function subCols(x, w)
+    local a = math.floor(w * 0.56)
+    local c = math.floor(w * 0.77)
+    return { { x, a - 2 }, { x + a, c - a }, { x + c, w - c } }
+end
+
 local function layoutColumns()
     local tw = size.rw - 24
     local bossW = math.floor((tw - BOSS_X) / 3)
-    local cols = { { 0, 22 }, { 28, 60 }, { 90, 38 }, { 130, 34 } }
-    local rs = ns.IsRS(state.mode)
     rscroll:SetWidth(tw)
     for i, fs in ipairs(right.heads) do
-        local x, w
-        if i <= 4 then
-            x, w = cols[i][1], cols[i][2]
+        local x, w, y
+        if i <= #TCOLS then
+            x, w, y = TCOLS[i][1], TCOLS[i][2], 4
         else
-            x, w = BOSS_X + (i - 5) * bossW, bossW - 4
-            if rs and i == 5 then w = bossW * 3 - 4 end
+            x, w, y = BOSS_X + (i - #TCOLS - 1) * bossW, bossW - 6, 20
         end
         local hb = right.headBtns[i]
         if hb then
-            hb:SetWidth(w)
+            hb:SetWidth(w + 2)
             hb:ClearAllPoints()
-            hb:SetPoint("BOTTOMLEFT", rscroll, "TOPLEFT", x - 2, 2)
+            hb:SetPoint("BOTTOMLEFT", rscroll, "TOPLEFT", x - 2, y - 2)
         end
         fs:SetWidth(w)
         fs:ClearAllPoints()
-        fs:SetPoint("BOTTOMLEFT", rscroll, "TOPLEFT", x, 6)
+        fs:SetPoint("BOTTOMLEFT", rscroll, "TOPLEFT", x, y)
+    end
+    for b = 1, 3 do
+        local sc = subCols(BOSS_X + (b - 1) * bossW, bossW - 6)
+        for k = 1, 3 do
+            local fs = right.subs[(b - 1) * 3 + k]
+            fs:SetWidth(sc[k][2])
+            fs:ClearAllPoints()
+            fs:SetPoint("BOTTOMLEFT", rscroll, "TOPLEFT", sc[k][1], 4)
+        end
     end
     for _, row in ipairs(rrows) do
         row:SetWidth(tw)
         for c, fs in ipairs(row.cols) do
-            fs:SetWidth(cols[c][2])
+            fs:SetWidth(TCOLS[c][2])
             fs:ClearAllPoints()
-            fs:SetPoint("TOPLEFT", row, "TOPLEFT", cols[c][1], 0)
+            fs:SetPoint("TOPLEFT", row, "TOPLEFT", TCOLS[c][1], 0)
         end
         for b = 1, 3 do
             local cs = row.cells[b]
             local x = BOSS_X + (b - 1) * bossW
-            local w = (rs and b == 1) and (bossW * 3 - 4) or (bossW - 4)
-            cs.top:SetWidth(w)
-            cs.top:ClearAllPoints()
-            cs.top:SetPoint("TOPLEFT", row, "TOPLEFT", x, -2)
-            cs.bot:SetWidth(math.max(w - 17, 10))
-            cs.bot:ClearAllPoints()
-            cs.bot:SetPoint("TOPLEFT", row, "TOPLEFT", x + 17, -17)
-            cs.bar.bg:ClearAllPoints()
-            cs.bar.bg:SetPoint("TOPLEFT", row, "TOPLEFT", x + 17, -15)
-            cs.bar.fill:ClearAllPoints()
-            cs.bar.fill:SetPoint("TOPLEFT", row, "TOPLEFT", x + 17, -15)
+            local sc = subCols(x, bossW - 6)
+            for k, fs in ipairs({ cs.val, cs.par, cs.gear }) do
+                fs:SetWidth(sc[k][2])
+                fs:ClearAllPoints()
+                fs:SetPoint("TOPLEFT", row, "TOPLEFT", sc[k][1], 0)
+            end
+            cs.btn:SetWidth(bossW - 2)
+            cs.btn:ClearAllPoints()
+            cs.btn:SetPoint("TOPLEFT", row, "TOPLEFT", x - 2, 0)
         end
     end
 end
@@ -641,11 +686,13 @@ local function layoutCtx(y)
     local total = math.max(n - 1, 0) * 3
     for i = 1, math.min(n, #right.seasons) do total = total + right.seasons[i]:GetWidth() end
     local labelW = right.seasonLabel:GetStringWidth() or 40
+    local sortW = right.sortBox:GetWidth()
+    place(right.sortBox, RX + size.rw - sortW, y + 2)
     local x = RX + math.floor(labelW + 0.5) + 8
     right.seasonLabel:ClearAllPoints()
     right.seasonLabel:SetPoint("LEFT", frame, "TOPLEFT", RX, -(y + 11))
     right.seasonLabel:Show()
-    if total > size.rw - labelW - 8 or n > #right.seasons then
+    if total > size.rw - sortW - 16 - labelW - 8 or n > #right.seasons then
         for _, b in ipairs(right.seasons) do b:Hide() end
         place(right.seasonDrop, x, y + 1)
         right.seasonDrop:Show()
@@ -673,7 +720,9 @@ local function layoutRight()
     right.empty:SetWidth(rw - 60)
     right.empty:ClearAllPoints()
     right.empty:SetPoint("TOP", rscroll, "TOP", 0, -30)
-    ns.PaintArt(right.art, state.art, size.w - (RX - 11) - 5, HEAD_H)
+    local artW = math.min(math.floor((size.w - RX + 6) * 0.6), 420)
+    right.art:SetWidth(artW)
+    ns.PaintArt(right.art, state.art, artW, HEAD_H, 0.55)
 
     local y = HEAD_Y + HEAD_H + 6
     place(right.noteLabel, RX, y + 4)
@@ -709,16 +758,16 @@ local function layoutRight()
         place(right.tiles5[i], RX + x, y)
         x = x + TILE_STEP
     end
-    for i, fs in ipairs(right.hist) do
-        fs:SetWidth(math.max(rw - HIST_X - ROLE_W - 6, 60))
-        place(fs, RX + HIST_X, y + (i - 1) * 18)
+    local kw = math.max(rw - HIST_X, 120)
+    right.killTile:SetWidth(kw)
+    place(right.killTile, RX + HIST_X, y)
+    for i = 1, 3 do
+        right.killTile.role[i]:ClearAllPoints()
+        right.killTile.role[i]:SetPoint("TOPLEFT", right.killTile, "TOPLEFT", math.floor(kw / 2) + 4, -20 - (i - 1) * 14)
     end
-    right.roleBox:SetWidth(ROLE_W)
-    place(right.roleBox, RX + rw - ROLE_W, y)
     y = y + TILE + 18 + GAP
 
-    place(right.sortBox, RX, y)
-    local top = y + 24 + 20
+    local top = y + HEAD_TOP
     place(rscroll, RX, top)
     local rows = math.floor((size.h - BOTTOM - top) / RROW_H)
     rows = math.max(1, math.min(rows, #rrows))
@@ -753,6 +802,8 @@ local function resetAmbient()
     state.art = nil
     right.art:Hide()
     right.bandLine:SetVertexColor(1, 0.82, 0, 0.2)
+    right.wash:Hide()
+    right.stripe:Hide()
 end
 
 local function renderMissing()
@@ -805,16 +856,22 @@ local function renderRight(keepScroll)
     renderHeader(rec, shown, s)
     renderTiles(rec, s)
     renderSeasons(rec)
-    renderHistory(rec, s)
+    renderKills(rec, s)
 
     local bosses = ns.BossesOf(state.mode)
     right.heads[1]:SetText(ns.Color("grey", "№"))
-    right.heads[2]:SetText(headLabel(2, "Дата"))
-    right.heads[3]:SetText(headLabel(3, "Вайпы"))
-    right.heads[4]:SetText(headLabel(4, "Илвл"))
+    right.heads[2]:SetText(headLabel(2, "Сезон"))
+    right.heads[3]:SetText(headLabel(3, "Дата"))
+    right.heads[4]:SetText(headLabel(4, "Вайпы"))
+    right.heads[5]:SetText(headLabel(5, "Илвл"))
     for b = 1, 3 do
-        right.heads[4 + b]:SetText(bosses[b] and headLabel(4 + b, ns.BossHead(bosses[b], 14)) or "")
-        if bosses[b] then right.headBtns[4 + b]:Show() else right.headBtns[4 + b]:Hide() end
+        local i = #TCOLS + b
+        right.heads[i]:SetText(bosses[b] and headLabel(i, ns.BossHead(bosses[b], 14)) or "")
+        if bosses[b] then right.headBtns[i]:Show() else right.headBtns[i]:Hide() end
+        for k = 1, 3 do
+            local fs = right.subs[(b - 1) * 3 + k]
+            if bosses[b] then fs:Show() else fs:Hide() end
+        end
     end
     local key = sortOpt()
     for _, b in ipairs(right.sortBtns) do ns.SetButton(b, b.key == key) end
@@ -993,11 +1050,9 @@ local function buildTile(i)
     gold(t.k)
     t.k:SetPoint("TOPLEFT", 9, -5)
     t.k:SetText(({ "Лучший парс ДД", "Лучший парс хил", "Лучший парс танк", "На своём гире" })[i])
-    if i == 4 then
-        t:EnableMouse(true)
-        t:SetScript("OnEnter", gearTip)
-        t:SetScript("OnLeave", function() GameTooltip:Hide() end)
-    end
+    t:EnableMouse(true)
+    t:SetScript("OnEnter", tileTip)
+    t:SetScript("OnLeave", function() GameTooltip:Hide() end)
     t.big = ns.Text(t, 22)
     t.big:SetPoint("TOPLEFT", 9, -20)
     t.s = ns.Text(t, 12)
@@ -1066,9 +1121,7 @@ local function buildModeTile(i, mode)
         renderRight()
     end)
     tile:SetScript("OnEnter", function(self)
-        GameTooltip:SetOwner(self, "ANCHOR_TOP")
-        GameTooltip:SetText(ns.MODE_FULL[mode], 1, 0.82, 0)
-        GameTooltip:Show()
+        ns.TipTable(self, "ANCHOR_TOP", ns.MODE_FULL[mode], { { "Рейдов", self.count or 0 } }, seasonCaption())
     end)
     tile:SetScript("OnLeave", function() GameTooltip:Hide() end)
     return tile
@@ -1084,27 +1137,29 @@ local function buildRaidRow(i)
     row:SetHighlightTexture(ns.WHITE)
     row:GetHighlightTexture():SetVertexColor(1, 0.82, 0, 0.08)
     row.cols = {}
-    for c = 1, 4 do
-        local fs = ns.Text(row, 13, c == 1 and "RIGHT" or ((c == 3 or c == 4) and "CENTER" or "LEFT"))
+    for c = 1, #TCOLS do
+        local fs = ns.Text(row, 13, TCOLS[c][3])
         fs:SetHeight(RROW_H)
         row.cols[c] = fs
     end
     row.cells = {}
     for b = 1, 3 do
-        local top = ns.Text(row, 13)
-        top:SetHeight(14)
-        local bot = ns.Text(row, 11)
-        bot:SetHeight(12)
-        local bg = ns.Rect(row, 1, 1, 1, 0.08, "ARTWORK")
-        bg:SetWidth(BAR_W)
-        bg:SetHeight(2)
-        local fill = ns.Rect(row, 1, 1, 1, 1, "OVERLAY")
-        fill:SetHeight(2)
-        row.cells[b] = { top = top, bot = bot, bar = { bg = bg, fill = fill } }
+        local cs = {}
+        cs.val = ns.Text(row, 13)
+        cs.par = ns.Text(row, 13, "CENTER")
+        cs.gear = ns.Text(row, 13, "CENTER")
+        for _, fs in ipairs({ cs.val, cs.par, cs.gear }) do fs:SetHeight(RROW_H) end
+        cs.btn = CreateFrame("Button", nil, row)
+        cs.btn:SetHeight(RROW_H)
+        cs.btn:SetHighlightTexture(ns.WHITE)
+        cs.btn:GetHighlightTexture():SetVertexColor(1, 0.82, 0, 0.1)
+        cs.btn:SetScript("OnEnter", cellTip)
+        cs.btn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+        row.cells[b] = cs
     end
     row.sep = ns.Text(row, 11, "LEFT", "head")
     row.sep:SetTextColor(1, 0.82, 0)
-    row.sep:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", 4, 5)
+    row.sep:SetPoint("LEFT", row, "LEFT", 4, 0)
     row.sep:Hide()
     row:Hide()
     return row
@@ -1122,7 +1177,7 @@ end
 
 local function guildTip(self)
     GameTooltip:SetOwner(self, "ANCHOR_BOTTOMLEFT")
-    GameTooltip:SetText("Где был", 1, 0.82, 0)
+    GameTooltip:SetText("Гильдии", 1, 0.82, 0)
     local lines = ns.GuildLines(state.id)
     if #lines == 0 then
         GameTooltip:AddLine("гильдия ещё не встречалась", 0.62, 0.62, 0.62)
@@ -1136,8 +1191,8 @@ end
 
 local function heroTip(self)
     if not self.date then return end
-    ns.Tip(self, "ANCHOR_BOTTOM", "Герой Нордскола",
-        "ЦЛК 25 анбаф без вайпов, " .. ns.DayMonthYearFull(self.date))
+    ns.TipTable(self, "ANCHOR_BOTTOM", "Герой Нордскола",
+        { "Король-лич в ЦЛК 25 анбаф, у рейда ни одного вайпа", { "Дата", ns.DayMonthYearFull(self.date) } })
 end
 
 local function hoverLine(onEnter, justify)
@@ -1154,10 +1209,20 @@ end
 
 local function buildHeader(keep)
     right.art = frame:CreateTexture(nil, "BORDER")
-    right.art:SetPoint("TOPLEFT", frame, "TOPLEFT", RX - 11, -HEAD_Y)
     right.art:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -5, -HEAD_Y)
     right.art:SetHeight(HEAD_H)
+    right.art:SetWidth(300)
     right.art:Hide()
+    right.wash = frame:CreateTexture(nil, "ARTWORK")
+    right.wash:SetPoint("TOPLEFT", frame, "TOPLEFT", RX - 11, -HEAD_Y)
+    right.wash:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -5, -HEAD_Y)
+    right.wash:SetHeight(HEAD_H)
+    right.wash:Hide()
+    right.stripe = frame:CreateTexture(nil, "ARTWORK")
+    right.stripe:SetPoint("TOPLEFT", frame, "TOPLEFT", RX - 11, -HEAD_Y)
+    right.stripe:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -5, -HEAD_Y)
+    right.stripe:SetHeight(2)
+    right.stripe:Hide()
     right.bandLine = keep(ns.Rect(frame, 1, 1, 1, 0.45, "ARTWORK"))
     right.bandLine:SetHeight(1)
     right.bandLine:SetPoint("TOPLEFT", frame, "TOPLEFT", RX - 11, -(HEAD_Y + HEAD_H))
@@ -1182,10 +1247,10 @@ local function buildHeader(keep)
     right.last:SetPoint("TOPRIGHT", -14, -45)
     right.sub = keep(ns.Text(frame, 13))
     right.sub:SetHeight(14)
-    right.sub:SetPoint("TOPLEFT", RX + 44, -64)
+    right.sub:SetPoint("TOPLEFT", RX + 44, -78)
     right.id = keep(ns.Text(frame, 11, "RIGHT"))
     dim(right.id)
-    right.id:SetPoint("TOPRIGHT", -14, -84)
+    right.id:SetPoint("TOPRIGHT", -14, -97)
 
     right.copy = CreateFrame("Button", nil, frame)
     right.copy:SetWidth(16)
@@ -1288,21 +1353,37 @@ local function buildTable(keep, data)
     keep(data(raidOnly(rscroll)))
 
     right.heads = {}
-    for i = 1, 7 do
-        local fs = keep(data(raidOnly(ns.Text(frame, 12, i == 1 and "RIGHT" or ((i == 3 or i == 4) and "CENTER" or "LEFT")))))
+    for i = 1, #TCOLS + 3 do
+        local fs = keep(data(raidOnly(ns.Text(frame, 12, i <= #TCOLS and TCOLS[i][3] or "LEFT"))))
+        fs:SetHeight(14)
         dim(fs)
         right.heads[i] = fs
     end
+    right.subs = {}
+    for b = 1, 3 do
+        for k, text in ipairs({ "дпс/хпс", "парс", "на гире" }) do
+            local fs = keep(data(raidOnly(ns.Text(frame, 11, k == 1 and "LEFT" or "CENTER"))))
+            fs:SetHeight(13)
+            fs:SetTextColor(0.5, 0.52, 0.55)
+            fs:SetText(text)
+            right.subs[(b - 1) * 3 + k] = fs
+        end
+    end
     right.headBtns = {}
-    for i = 2, 7 do
+    for i = 2, #TCOLS + 3 do
         local t = CreateFrame("Button", nil, frame)
         t:SetHeight(18)
         t.key = HEAD_KEYS[i]
         t:SetHighlightTexture(ns.WHITE)
         t:GetHighlightTexture():SetVertexColor(1, 0.82, 0, 0.12)
-        if i >= 5 then
+        if i > #TCOLS then
             t:SetScript("OnEnter", function(self)
-                ns.Tip(self, "ANCHOR_TOP", GEAR_TITLE, GEAR_TIP, GEAR_EMPTY, "Клик по заголовку — сортировка по парсу босса.")
+                ns.TipTable(self, "ANCHOR_TOP", "Колонки босса", {
+                    { "дпс/хпс", "урон или исцеление" },
+                    { "парс", "среди всех" },
+                    { "на гире", "тот же спек, илвл ±2" },
+                    GEAR_EMPTY,
+                }, "клик по заголовку — сортировка по парсу")
             end)
             t:SetScript("OnLeave", function() GameTooltip:Hide() end)
         end
@@ -1314,7 +1395,7 @@ local function buildTable(keep, data)
         right.headBtns[i] = keep(data(raidOnly(t)))
     end
 
-    right.sortBox = keep(data(raidOnly(CreateFrame("Frame", nil, frame))))
+    right.sortBox = keep(data(CreateFrame("Frame", nil, frame)))
     right.sortBox:SetHeight(18)
     right.sortBtns = {}
     local x = 0
@@ -1376,27 +1457,29 @@ local function buildRight()
         right.tiles5[i] = tile
     end
 
-    right.hist = {}
+    local kt = keep(data(CreateFrame("Frame", nil, frame)))
+    kt:SetHeight(TILE + 18)
+    kt:SetBackdrop(THIN)
+    kt:SetBackdropColor(0, 0, 0, 0.38)
+    kt:SetBackdropBorderColor(0.3, 0.26, 0.18, 1)
+    kt:EnableMouse(true)
+    kt:SetScript("OnEnter", killTip)
+    kt:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    kt.title = ns.Text(kt, 12)
+    gold(kt.title)
+    kt.title:SetPoint("TOPLEFT", 9, -5)
+    kt.title:SetText("Убито боссов")
+    kt.boss, kt.role = {}, {}
     for i = 1, 3 do
-        local fs = keep(data(ns.Text(frame, 12)))
-        fs:SetHeight(16)
-        right.hist[i] = fs
+        local b = ns.Text(kt, 13)
+        b:SetHeight(14)
+        b:SetPoint("TOPLEFT", kt, "TOPLEFT", 9, -20 - (i - 1) * 14)
+        kt.boss[i] = b
+        local r = ns.Text(kt, 13)
+        r:SetHeight(14)
+        kt.role[i] = r
     end
-
-    right.roleBox = keep(data(CreateFrame("Frame", nil, frame)))
-    right.roleBox:SetHeight(54)
-    right.roleBox:EnableMouse(true)
-    right.roleBox:SetScript("OnEnter", function(self)
-        ns.Tip(self, "ANCHOR_TOP", "Сколько боссов убито в каждой роли — все килы сезона")
-    end)
-    right.roleBox:SetScript("OnLeave", function() GameTooltip:Hide() end)
-    right.roleBox.lines = {}
-    for i = 1, 3 do
-        local fs = ns.Text(right.roleBox, 13)
-        fs:SetHeight(16)
-        fs:SetPoint("TOPLEFT", right.roleBox, "TOPLEFT", 0, -(i - 1) * 18)
-        right.roleBox.lines[i] = fs
-    end
+    right.killTile = kt
 
     buildTable(keep, data)
 
