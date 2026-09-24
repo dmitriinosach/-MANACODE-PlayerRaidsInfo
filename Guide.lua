@@ -19,29 +19,29 @@ local STEPS = {
         text = "Впишите ник или старый ник в поле «Ник» и нажмите Enter.\n\n«Все» — кого вы недавно встречали в игре, «Ренеймы» — кто менял ник. Щелчок по строке открывает игрока справа.",
     },
     {
-        find = "head", need = true,
+        find = "head",
         title = "Игрок",
         text = "Ник, звание и гильдия. Значок рядом с ником копирует его, «ГН» — Герой Нордскола. Наведите на ник или гильдию — появится история.\n\nЗаметку видите только вы, обновление данных её не сотрёт.",
     },
     {
-        find = "seasons", need = true,
+        find = "seasons",
         title = "Сезоны",
-        text = "«ВСЕ» — все сезоны подряд, число — один сезон. Серый сезон пуст или не скачан: наведите, чтобы узнать почему.",
+        text = "«ВСЕ» — все сезоны подряд, число — один сезон. Серый сезон пуст или не скачан: наведите, чтобы узнать почему.\n\nСправа — порядок рейдов в таблице: «по дате» или «по лучшему парсу».",
     },
     {
-        find = "best", need = true,
+        find = "best",
         title = "Лучший парс",
         text = "Лучший парс сезона за ДД, хила и танка. Наведите на плитку — босс, сложность и дата.\n\n«На своём гире» — парс среди игроков того же спека с таким же уровнем предметов.",
     },
     {
-        find = "modes", need = true,
+        find = "modes",
         title = "Сложность",
         text = "Череп — героик, «А» — анбаф. Под плиткой — сколько рейдов, щелчок показывает рейды этой сложности.\n\n«Убито боссов» — сколько раз убит каждый босс и сколько килов за ДД, хила и танка.",
     },
     {
-        find = "table", need = true,
+        find = "table",
         title = "Рейды",
-        text = "В ячейке — дпс или хпс, парс и парс на гире. Наведите на ячейку — подробности.\n\nЩелчок по заголовку столбца сортирует таблицу. «по дате» и «по лучшему парсу» — справа в строке сезонов.",
+        text = "В ячейке — дпс или хпс, парс и парс на гире. Наведите на ячейку — подробности.\n\nЩелчок по заголовку столбца сортирует таблицу.",
     },
     {
         title = "Карточка по Alt",
@@ -56,11 +56,11 @@ local STEPS = {
 
 local host, ov, card, ring, arrow
 local bands, dots = {}, {}
-local step, since, dirty, picked, escOff = 1, 0, false, nil, nil
+local step, since, dirty, escOff = 1, 0, false, nil
 local acc, hole = {}, {}
-local kidsN, kidsList = -1, {}
-local labels = {}
 local go
+
+local HEAD_ROWS = 36
 
 local function clamp(v, lo, hi)
     if hi < lo then return lo end
@@ -69,29 +69,8 @@ local function clamp(v, lo, hi)
     return v
 end
 
-local function kids()
-    local n = host:GetNumChildren()
-    if n ~= kidsN then
-        kidsN = n
-        kidsList = { host:GetChildren() }
-    end
-    return kidsList
-end
-
-local function label(text)
-    local fs = labels[text]
-    if fs and fs:GetText() == text then return fs end
-    labels[text] = nil
-    for _, r in ipairs({ host:GetRegions() }) do
-        if r:GetObjectType() == "FontString" and r:GetText() == text then
-            labels[text] = r
-            return r
-        end
-    end
-end
-
 local function add(obj)
-    if not obj or not obj.IsVisible or not obj:IsVisible() then return end
+    if type(obj) ~= "table" or not obj.IsVisible or not obj:IsVisible() then return end
     local l, r, t, b = obj:GetLeft(), obj:GetRight(), obj:GetTop(), obj:GetBottom()
     if not (l and r and t and b) then return end
     local sc = ov:GetEffectiveScale()
@@ -107,75 +86,70 @@ local function add(obj)
     end
 end
 
-local function each(field, fn)
-    for _, c in ipairs(kids()) do
-        if c[field] ~= nil then fn(c) end
+local function addAll(v)
+    if type(v) ~= "table" then return end
+    if v.IsVisible then
+        add(v)
+        return
     end
+    for _, o in ipairs(v) do add(o) end
 end
 
-local function textOf(c)
-    local fs = c.text
-    if type(fs) ~= "table" or not fs.GetText then return nil end
-    return fs:GetText()
+local function target(key)
+    local gt = ns.GuideTargets
+    return gt and gt[key]
+end
+
+local function scrollBar(sf)
+    local name = type(sf) == "table" and sf.GetName and sf:GetName()
+    return name and _G[name .. "ScrollBar"]
 end
 
 local FIND = {}
 
 FIND.left = function()
-    add(_G.PlayerRaidsSearch)
-    add(_G.PlayerRaidsList)
-    add(_G.PlayerRaidsListScrollBar)
-    each("list", add)
+    addAll(target("search"))
+    addAll(target("listTabs"))
+    addAll(target("list"))
+    add(scrollBar(target("list")))
 end
 
 FIND.head = function()
-    local note = _G.PlayerRaidsNote
-    if not note or not note:IsVisible() then return end
-    add(note)
-    add(label("Заметка:"))
-    if not acc.l then return end
-    acc.l = acc.l - 4
-    acc.r = ov:GetWidth() - 10
-    acc.t = 42
+    addAll(target("header"))
+    addAll(target("note"))
 end
 
 FIND.seasons = function()
-    each("season", add)
-    each("textX", add)
-    if acc.l then add(label("СЕЗОН")) end
+    addAll(target("seasons"))
+    addAll(target("sort"))
 end
 
 FIND.best = function()
-    each("big", add)
+    addAll(target("bestTiles"))
 end
 
 FIND.modes = function()
-    each("caption", function(c)
-        if c:IsVisible() then
-            add(c)
-            add(c.caption)
+    local tiles = target("diffTiles")
+    if type(tiles) == "table" then
+        for _, t in ipairs(tiles) do
+            add(t)
+            if type(t) == "table" and t.IsVisible and t:IsVisible() then add(t.caption) end
         end
-    end)
-    if not acc.l then return end
-    each("boss", add)
-    each("lines", add)
+    end
+    addAll(target("kills"))
 end
 
 FIND.table = function()
-    local rs = _G.PlayerRaidsRaids
-    if not rs or not rs:IsVisible() then return end
+    local rs = target("raids")
+    if type(rs) ~= "table" or not rs.IsVisible or not rs:IsVisible() then return end
     add(rs)
-    add(_G.PlayerRaidsRaidsScrollBar)
-    each("key", function(c)
-        if c.text == nil then add(c) end
-    end)
+    add(scrollBar(rs))
+    if acc.l then acc.t = acc.t - HEAD_ROWS end
 end
 
 FIND.bottom = function()
-    each("text", function(c)
-        local s = textOf(c)
-        if s == "Как обновить?" or s == "/reload" then add(c) end
-    end)
+    addAll(target("update"))
+    addAll(target("reload"))
     if not acc.l then return end
     acc.l = 8
     acc.r = ov:GetWidth() - 8
@@ -184,7 +158,7 @@ end
 local function resolve(key)
     acc.l, acc.r, acc.t, acc.b = nil, nil, nil, nil
     local fn = key and FIND[key]
-    if not fn then return nil end
+    if not fn or not ov:GetLeft() then return nil end
     fn()
     if not acc.l or acc.r - acc.l < 2 or acc.b - acc.t < 2 then return nil end
     local W, H = ov:GetWidth(), ov:GetHeight()
@@ -194,27 +168,6 @@ local function resolve(key)
     hole.b = math.min(math.ceil(acc.b + PAD), H)
     if hole.r - hole.l < 2 or hole.b - hole.t < 2 then return nil end
     return hole
-end
-
-local function pickPlayer()
-    if picked then return end
-    picked = true
-    for _, c in ipairs(kids()) do
-        if c.caption and c:IsVisible() then return end
-    end
-    local own = ns.IdFromGuid and ns.IdFromGuid(UnitGUID("player"))
-    local row
-    for _, c in ipairs(kids()) do
-        if c.id and c.sel and c:IsVisible() and ns.Get(c.id) then
-            if c.id == own then
-                row = c
-                break
-            end
-            row = row or c
-        end
-    end
-    local click = row and row:GetScript("OnClick")
-    if click then click(row, "LeftButton") end
 end
 
 local function band(i, x, y, w, h)
@@ -290,10 +243,6 @@ local function layout()
     if not ov:GetLeft() then return end
     local s = STEPS[step]
     local h = resolve(s.find)
-    if not h and s.need then
-        pickPlayer()
-        h = resolve(s.find)
-    end
 
     local bh = card.body:GetStringHeight() or 14
     local ch = math.floor(46 + bh + 16 + 22 + 12 + 0.5)
@@ -515,7 +464,7 @@ end
 
 function ns.ShowGuide(parent)
     build(parent)
-    step, picked = 1, nil
+    step = 1
     render()
     card:Hide()
     ring:Hide()
