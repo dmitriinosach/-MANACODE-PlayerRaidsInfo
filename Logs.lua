@@ -505,12 +505,12 @@ function ns.RaidIlvl(raid)
     return best
 end
 
-function ns.GearMedian(s, mode)
+function ns.GearMedian(s, mode, roles)
     local v = {}
     for _, raid in ipairs(s and s.byMode[mode] or {}) do
         for b = 1, 3 do
             local c = raid.cells[b]
-            if c and c.gear then tinsert(v, c.gear) end
+            if c and c.gear and (not roles or roles[c.role]) then tinsert(v, c.gear) end
         end
     end
     local n = #v
@@ -634,6 +634,27 @@ function ns.SpecRole(spec)
     if HEAL_SPECS[key] then return "h" end
     if TANK_SPECS[key] then return "t" end
     return "d"
+end
+
+function ns.RoleAverage(s, mode)
+    local out = {}
+    for _, raid in ipairs(s and s.byMode[mode] or {}) do
+        local seen = {}
+        for b = 1, 3 do
+            local c = raid.cells[b]
+            if c and c.value and (c.role == "d" or c.role == "h") then
+                local a = out[c.role] or { sum = 0, n = 0, raids = 0 }
+                a.sum, a.n = a.sum + c.value, a.n + 1
+                if not seen[c.role] then
+                    seen[c.role] = true
+                    a.raids = a.raids + 1
+                end
+                out[c.role] = a
+            end
+        end
+    end
+    for _, a in pairs(out) do a.avg = floor(a.sum / a.n + 0.5) end
+    return out
 end
 
 local function roleIn(s, mode)

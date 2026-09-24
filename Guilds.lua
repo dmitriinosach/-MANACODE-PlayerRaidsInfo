@@ -36,6 +36,9 @@ local function titleFrom(unit, name)
     local full = UnitPVPName(unit)
     if type(full) ~= "string" or full == "" then return nil end
     local a, b = string.find(full, name, 1, true)
+    if not a then
+        a, b = string.find(ns.Lower(full), ns.Lower(name), 1, true)
+    end
     if not a then return nil end
     local t = strsub(full, 1, a - 1) .. strsub(full, b + 1)
     t = string.gsub(t, "^[%s,]+", "")
@@ -54,8 +57,26 @@ local function scan(unit)
     if not id then return end
     record(id, (GetGuildInfo(unit)))
     local title = titleFrom(unit, name)
-    local e = PlayerRaidsGuilds[id]
-    if title ~= nil and e then e.title = title end
+    if title ~= nil then
+        local e = PlayerRaidsGuilds[id] or { hist = {} }
+        e.title = title
+        PlayerRaidsGuilds[id] = e
+    end
+end
+
+local rescan, rescanAt = nil, 0
+local later = CreateFrame("Frame")
+later:Hide()
+later:SetScript("OnUpdate", function(self)
+    if GetTime() < rescanAt then return end
+    self:Hide()
+    if rescan then scan(rescan) end
+end)
+
+local function scanTwice(unit)
+    scan(unit)
+    rescan, rescanAt = unit, GetTime() + 0.6
+    later:Show()
 end
 
 local function scanGroup()
@@ -85,9 +106,9 @@ watcher:SetScript("OnEvent", function(self, event)
     if event == "UPDATE_MOUSEOVER_UNIT" then
         scan("mouseover")
     elseif event == "PLAYER_TARGET_CHANGED" then
-        scan("target")
+        scanTwice("target")
     elseif event == "PLAYER_FOCUS_CHANGED" then
-        scan("focus")
+        scanTwice("focus")
     elseif event == "GUILD_ROSTER_UPDATE" then
         scanRoster()
     elseif event == "PLAYER_LOGIN" then
@@ -104,6 +125,9 @@ function ns.GuildOf(id)
 end
 
 function ns.TitleOf(id)
+    local name = id and ns.NameOf and ns.NameOf(id)
+    local unit = name and ns.UnitFor and ns.UnitFor(name)
+    if unit then scan(unit) end
     local e = ns.GuildOf(id)
     return e and e.title or nil
 end

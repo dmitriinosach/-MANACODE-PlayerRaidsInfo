@@ -1,45 +1,58 @@
 local ADDON, ns = ...
 
 local GR, GG, GB = 1, 0.82, 0
-local VEIL_A = 0.66
+local DIM_A = 0.72
 local PAD = 5
-local GAP = 6
-local ARROW = 16
-local EDGE = 8
-local CARD_W = 318
+local RING_PAD = 4
+local CARD_W = 310
 local REFRESH = 0.25
+local HEAD_ROWS = 36
+local GAP = 10
+local MARGIN = 8
 local GLOW = 12
-local ARROW_TEX = "Interface\\Buttons\\Arrow-Up-Up"
-local RING_TEX = "Interface\\Tooltips\\UI-Tooltip-Border"
+local GLOW_A = 0.6
+local GLOW_SLICES = 3
+local SIDES = { "below", "above", "right", "left" }
+
+local RING_BACKDROP = {
+    edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+    edgeSize = 16,
+}
 
 local STEPS = {
     {
         find = "left",
+        side = "right",
         title = "Поиск и список",
         text = "Впишите ник или старый ник в поле «Ник» и нажмите Enter.\n\n«Все» — кого вы недавно встречали в игре, «Ренеймы» — кто менял ник. Щелчок по строке открывает игрока справа.",
     },
     {
         find = "head",
+        side = "below",
         title = "Игрок",
         text = "Ник, звание и гильдия. Значок рядом с ником копирует его, «ГН» — Герой Нордскола. Наведите на ник или гильдию — появится история.\n\nЗаметку видите только вы, обновление данных её не сотрёт.",
     },
     {
         find = "seasons",
+        side = "below",
         title = "Сезоны",
-        text = "«ВСЕ» — все сезоны подряд, число — один сезон. Серый сезон пуст или не скачан: наведите, чтобы узнать почему.\n\nСправа — порядок рейдов в таблице: «по дате» или «по лучшему парсу».",
+        text = "«ВСЕ» — все сезоны подряд, число — один сезон. Серый сезон пуст или не скачан: наведите, чтобы узнать почему.",
     },
     {
         find = "best",
+        side = "below",
         title = "Лучший парс",
-        text = "Лучший парс сезона за ДД, хила и танка. Наведите на плитку — босс, сложность и дата.\n\n«На своём гире» — парс среди игроков того же спека с таким же уровнем предметов.",
+        text = "Лучший парс сезона за ДД, хила и танка. Наведите на плитку — босс, сложность и дата.\n\n«Средний» — средний дпс и хпс по выбранной сложности.\n\n«На своём гире» — парс среди игроков того же спека с таким же уровнем предметов.",
     },
     {
         find = "modes",
+        side = "below",
         title = "Сложность",
         text = "Череп — героик, «А» — анбаф. Под плиткой — сколько рейдов, щелчок показывает рейды этой сложности.\n\n«Убито боссов» — сколько раз убит каждый босс и сколько килов за ДД, хила и танка.",
     },
     {
         find = "table",
+        side = "above",
         title = "Рейды",
         text = "В ячейке — дпс или хпс, парс и парс на гире. Наведите на ячейку — подробности.\n\nЩелчок по заголовку столбца сортирует таблицу.",
     },
@@ -49,25 +62,21 @@ local STEPS = {
     },
     {
         find = "bottom",
+        side = "above",
+        align = "center",
         title = "Обновление данных",
         text = "Внизу — дата выгрузки и сколько в ней игроков. «Как обновить?» — как скачать свежие данные, «/reload» — перечитать их после обновления.",
     },
 }
 
-local host, ov, card, ring, arrow
-local bands, dots = {}, {}
+local host, ov, card, ring, glow, pulse
+local bands = {}
+local strips = {}
+local corners = {}
+local ui = {}
 local step, since, dirty, escOff = 1, 0, false, nil
 local acc, hole = {}, {}
 local go
-
-local HEAD_ROWS = 36
-
-local function clamp(v, lo, hi)
-    if hi < lo then return lo end
-    if v < lo then return lo end
-    if v > hi then return hi end
-    return v
-end
 
 local function add(obj)
     if type(obj) ~= "table" or not obj.IsVisible or not obj:IsVisible() then return end
@@ -170,128 +179,204 @@ local function resolve(key)
     return hole
 end
 
-local function band(i, x, y, w, h)
+local function band(i, x, y, w, hh)
     local b = bands[i]
-    if w < 1 or h < 1 then
+    if w < 1 or hh < 1 then
         b:Hide()
         return
     end
     b:ClearAllPoints()
     b:SetPoint("TOPLEFT", ov, "TOPLEFT", x, -y)
     b:SetWidth(w)
-    b:SetHeight(h)
+    b:SetHeight(hh)
     b:Show()
 end
 
-local function pointArrow(side, ax, ay)
-    arrow:ClearAllPoints()
-    if side == "below" then
-        arrow:SetTexCoord(0, 1, 0, 1)
-        arrow:SetPoint("BOTTOM", card, "TOPLEFT", ax, -3)
-    elseif side == "above" then
-        arrow:SetTexCoord(0, 1, 1, 0)
-        arrow:SetPoint("TOP", card, "BOTTOMLEFT", ax, 3)
-    elseif side == "right" then
-        arrow:SetTexCoord(1, 0, 0, 0, 1, 1, 0, 1)
-        arrow:SetPoint("RIGHT", card, "TOPLEFT", 3, -ay)
-    else
-        arrow:SetTexCoord(0, 1, 1, 1, 0, 0, 1, 0)
-        arrow:SetPoint("LEFT", card, "TOPRIGHT", -3, -ay)
-    end
-    arrow:Show()
+local function maskAround(h)
+    local ow, oh = ov:GetWidth(), ov:GetHeight()
+    band(1, 0, 0, ow, h.t)
+    band(2, 0, h.b, ow, oh - h.b)
+    band(3, 0, h.t, h.l, h.b - h.t)
+    band(4, h.r, h.t, ow - h.r, h.b - h.t)
 end
 
-local SIDES_WIDE = { "below", "above", "right", "left" }
-local SIDES_TALL = { "right", "left", "below", "above" }
-
-local function placeCard(h, ch)
-    card:ClearAllPoints()
-    if not h then
-        card:SetPoint("CENTER", ov, "CENTER", 0, 0)
-        arrow:Hide()
+local function putGlow(t, x, y, w, hh, ow, oh)
+    local x2, y2 = x + w, y + hh
+    if x < 0 then x = 0 end
+    if y < 0 then y = 0 end
+    if x2 > ow then x2 = ow end
+    if y2 > oh then y2 = oh end
+    if x2 - x < 1 or y2 - y < 1 then
+        t:Hide()
         return
     end
-    local W, H = ov:GetWidth(), ov:GetHeight()
-    local cw = CARD_W
-    local cx, cy = (h.l + h.r) / 2, (h.t + h.b) / 2
-    local off = GAP + ARROW
-    local sides = (h.b - h.t > h.r - h.l) and SIDES_TALL or SIDES_WIDE
-    for _, side in ipairs(sides) do
-        local x, y
-        if side == "below" and H - h.b - off - EDGE >= ch then
-            x, y = clamp(cx - cw / 2, EDGE, W - cw - EDGE), h.b + off
-        elseif side == "above" and h.t - off - EDGE >= ch then
-            x, y = clamp(cx - cw / 2, EDGE, W - cw - EDGE), h.t - off - ch
-        elseif side == "right" and W - h.r - off - EDGE >= cw then
-            x, y = h.r + off, clamp(cy - ch / 2, EDGE, H - ch - EDGE)
-        elseif side == "left" and h.l - off - EDGE >= cw then
-            x, y = h.l - off - cw, clamp(cy - ch / 2, EDGE, H - ch - EDGE)
+    t:ClearAllPoints()
+    t:SetPoint("TOPLEFT", glow, "TOPLEFT", x, -y)
+    t:SetWidth(x2 - x)
+    t:SetHeight(y2 - y)
+    t:Show()
+end
+
+local function fade(t, orient, aNear, aFar, nearIsStart)
+    if nearIsStart then
+        t:SetGradientAlpha(orient, GR, GG, GB, aNear, GR, GG, GB, aFar)
+    else
+        t:SetGradientAlpha(orient, GR, GG, GB, aFar, GR, GG, GB, aNear)
+    end
+end
+
+local function glowAround(h)
+    local ow, oh = ov:GetWidth(), ov:GetHeight()
+    local w, hh = h.r - h.l, h.b - h.t
+    putGlow(strips[1], h.l, h.t - GLOW, w, GLOW, ow, oh)
+    fade(strips[1], "VERTICAL", GLOW_A, 0, true)
+    putGlow(strips[2], h.l, h.b, w, GLOW, ow, oh)
+    fade(strips[2], "VERTICAL", GLOW_A, 0, false)
+    putGlow(strips[3], h.l - GLOW, h.t, GLOW, hh, ow, oh)
+    fade(strips[3], "HORIZONTAL", GLOW_A, 0, false)
+    putGlow(strips[4], h.r, h.t, GLOW, hh, ow, oh)
+    fade(strips[4], "HORIZONTAL", GLOW_A, 0, true)
+
+    local s = GLOW / GLOW_SLICES
+    for i = 1, GLOW_SLICES do
+        local a = GLOW_A * (1 - (i - 0.5) / GLOW_SLICES)
+        local c = corners[i]
+        putGlow(c[1], h.l - i * s, h.t - GLOW, s, GLOW, ow, oh)
+        fade(c[1], "VERTICAL", a, 0, true)
+        putGlow(c[2], h.r + (i - 1) * s, h.t - GLOW, s, GLOW, ow, oh)
+        fade(c[2], "VERTICAL", a, 0, true)
+        putGlow(c[3], h.l - i * s, h.b, s, GLOW, ow, oh)
+        fade(c[3], "VERTICAL", a, 0, false)
+        putGlow(c[4], h.r + (i - 1) * s, h.b, s, GLOW, ow, oh)
+        fade(c[4], "VERTICAL", a, 0, false)
+    end
+    glow:Show()
+end
+
+local function overlap(x, y, w, hh, h)
+    local dx = math.min(x + w, h.r) - math.max(x, h.l)
+    local dy = math.min(y + hh, h.b) - math.max(y, h.t)
+    if dx <= 0 or dy <= 0 then return 0 end
+    return dx * dy
+end
+
+local function clamp(v, lo, hi)
+    if v > hi then v = hi end
+    if v < lo then v = lo end
+    return v
+end
+
+local function spot(side, align, h, w, hh, ow, oh)
+    local x, y
+    if side == "below" then
+        y = h.b + GAP
+    elseif side == "above" then
+        y = h.t - GAP - hh
+    elseif side == "right" then
+        x = h.r + GAP
+    else
+        x = h.l - GAP - w
+    end
+    if x == nil then
+        if align == "center" then
+            x = (h.l + h.r) / 2 - w / 2
+        elseif align == "end" then
+            x = h.r - w
+        else
+            x = h.l
         end
-        if x then
-            x, y = math.floor(x), math.floor(y)
-            card:SetPoint("TOPLEFT", ov, "TOPLEFT", x, -y)
-            pointArrow(side, clamp(cx - x, 20, cw - 20), clamp(cy - y, 20, ch - 20))
-            return
+    else
+        if align == "center" then
+            y = (h.t + h.b) / 2 - hh / 2
+        elseif align == "end" then
+            y = h.b - hh
+        else
+            y = h.t
         end
     end
-    card:SetPoint("CENTER", ov, "CENTER", 0, 0)
-    arrow:Hide()
+    x = clamp(x, MARGIN, ow - MARGIN - w)
+    y = clamp(y, MARGIN, oh - MARGIN - hh)
+    return math.floor(x), math.floor(y)
+end
+
+local function placeCard(h, side, align, w, hh, ow, oh)
+    local x, y = spot(side, align, h, w, hh, ow, oh)
+    local best = overlap(x, y, w, hh, h)
+    if best == 0 then return x, y end
+    local bx, by = x, y
+    for _, s in ipairs(SIDES) do
+        if s ~= side then
+            x, y = spot(s, align, h, w, hh, ow, oh)
+            local o = overlap(x, y, w, hh, h)
+            if o == 0 then return x, y end
+            if o < best then best, bx, by = o, x, y end
+        end
+    end
+    return bx, by
 end
 
 local function layout()
     since, dirty = 0, false
     if not ov:GetLeft() then return end
+
+    local ow, oh = ov:GetWidth(), ov:GetHeight()
+    local cardW = CARD_W
+    if cardW > ow - 24 then cardW = ow - 24 end
+    card:SetWidth(cardW)
+    ui.body:SetWidth(cardW - 24)
+
     local s = STEPS[step]
     local h = resolve(s.find)
 
-    local bh = card.body:GetStringHeight() or 14
-    local ch = math.floor(46 + bh + 16 + 22 + 12 + 0.5)
-    card:SetHeight(ch)
+    local bodyH = ui.body:GetStringHeight()
+    if bodyH < 12 then bodyH = 12 end
+    local cardH = 11 + 16 + 6 + bodyH + 10 + 16 + 11
+    card:SetHeight(cardH)
 
-    local W, H = ov:GetWidth(), ov:GetHeight()
+    card:ClearAllPoints()
     if h then
-        band(1, 0, 0, W, h.t)
-        band(2, 0, h.b, W, H - h.b)
-        band(3, 0, h.t, h.l, h.b - h.t)
-        band(4, h.r, h.t, W - h.r, h.b - h.t)
+        ui.dim:Hide()
+        maskAround(h)
+        glowAround(h)
         ring:ClearAllPoints()
-        ring:SetPoint("TOPLEFT", ov, "TOPLEFT", h.l - 4, -(h.t - 4))
-        ring:SetWidth(h.r - h.l + 8)
-        ring:SetHeight(h.b - h.t + 8)
+        ring:SetPoint("TOPLEFT", ov, "TOPLEFT", h.l - RING_PAD, -(h.t - RING_PAD))
+        ring:SetPoint("BOTTOMRIGHT", ov, "TOPLEFT", h.r + RING_PAD, -(h.b + RING_PAD))
         ring:Show()
+        local x, y = placeCard(h, s.side or "below", s.align, cardW, cardH, ow, oh)
+        card:SetPoint("TOPLEFT", ov, "TOPLEFT", x, -y)
     else
-        band(1, 0, 0, W, H)
-        for i = 2, 4 do bands[i]:Hide() end
+        for _, b in ipairs(bands) do b:Hide() end
+        glow:Hide()
         ring:Hide()
+        ui.dim:Show()
+        card:SetPoint("CENTER", ov, "CENTER", 0, 0)
     end
-    placeCard(h, ch)
     card:Show()
-end
-
-local function paintDots()
-    for i, d in ipairs(dots) do
-        local sz = (i == step) and 8 or 6
-        d.dot:SetWidth(sz)
-        d.dot:SetHeight(sz)
-        if i == step then
-            d.dot:SetVertexColor(GR, GG, GB, 1)
-        elseif i < step then
-            d.dot:SetVertexColor(GR, GG, GB, 0.45)
-        else
-            d.dot:SetVertexColor(0.55, 0.55, 0.58, 0.6)
-        end
-    end
 end
 
 local function render()
     local s = STEPS[step]
-    card.title:SetText(s.title)
-    card.body:SetText(s.text)
-    card.count:SetText(step .. " / " .. #STEPS)
-    ns.SetButton(card.back, false, step <= 1)
-    card.next.text:SetText(step < #STEPS and "Далее" or "Готово")
-    ns.SetButton(card.next, true)
-    paintDots()
+    ui.count:SetText(step .. " / " .. #STEPS)
+    ui.title:SetText(s.title)
+    ui.body:SetText(s.text)
+
+    local GREY = { 0.55, 0.55, 0.55 }
+    local function place(btn, base)
+        btn.base = base
+        btn.fs:SetTextColor(base[1], base[2], base[3])
+        btn:SetWidth(btn.fs:GetStringWidth() + 6)
+    end
+
+    ui.skip:ClearAllPoints(); ui.skip:SetPoint("BOTTOMLEFT", 12, 11)
+    place(ui.skip, GREY)
+
+    ui.next.fs:SetText(step < #STEPS and "Далее" or "Готово")
+    ui.next:ClearAllPoints(); ui.next:SetPoint("BOTTOMRIGHT", -12, 11)
+    place(ui.next, { GR, GG, GB })
+
+    ui.back:ClearAllPoints(); ui.back:SetPoint("BOTTOMRIGHT", ui.next, "BOTTOMLEFT", -14, 0)
+    place(ui.back, GREY)
+    if step > 1 then ui.back:Show() else ui.back:Hide() end
 end
 
 local function finish()
@@ -331,143 +416,134 @@ local function veilClick(self, button)
     if button == "RightButton" then go(step - 1) else go(step + 1) end
 end
 
-local function buildRing()
-    ring = CreateFrame("Frame", nil, ov)
-    ring:SetFrameLevel(ov:GetFrameLevel() + 3)
-    ring:SetBackdrop({ edgeFile = RING_TEX, edgeSize = 14 })
-    ring:SetBackdropBorderColor(GR, GG, GB, 1)
-    local sides = {
-        { "BOTTOMLEFT", "TOPLEFT", "BOTTOMRIGHT", "TOPRIGHT", "VERTICAL", 0.4, 0 },
-        { "TOPLEFT", "BOTTOMLEFT", "TOPRIGHT", "BOTTOMRIGHT", "VERTICAL", 0, 0.4 },
-        { "TOPRIGHT", "TOPLEFT", "BOTTOMRIGHT", "BOTTOMLEFT", "HORIZONTAL", 0, 0.4 },
-        { "TOPLEFT", "TOPRIGHT", "BOTTOMLEFT", "BOTTOMRIGHT", "HORIZONTAL", 0.4, 0 },
-    }
-    for i, s in ipairs(sides) do
-        local t = ring:CreateTexture(nil, "BACKGROUND")
-        t:SetTexture(ns.WHITE)
-        t:SetBlendMode("ADD")
-        t:SetPoint(s[1], ring, s[2], 0, 0)
-        t:SetPoint(s[3], ring, s[4], 0, 0)
-        if i <= 2 then t:SetHeight(GLOW) else t:SetWidth(GLOW) end
-        t:SetGradientAlpha(s[5], GR, GG, GB, s[6], GR, GG, GB, s[7])
-    end
-    local ag = ring:CreateAnimationGroup()
-    local a = ag:CreateAnimation("Alpha")
-    a:SetChange(-0.6)
-    a:SetDuration(0.75)
-    a:SetSmoothing("IN_OUT")
-    ag:SetLooping("BOUNCE")
-    ring:SetScript("OnShow", function() ag:Play() end)
-    ring:SetScript("OnHide", function() ag:Stop() end)
-    ring:Hide()
+local function textBtn(parent, onClick)
+    local b = CreateFrame("Button", nil, parent)
+    b:SetHeight(16)
+    local fs = ns.Text(b, 13, "CENTER")
+    fs:SetAllPoints(b)
+    b.fs = fs
+    b:SetScript("OnEnter", function(self) self.fs:SetTextColor(1, 1, 1) end)
+    b:SetScript("OnLeave", function(self)
+        local c = self.base or { 0.6, 0.6, 0.6 }
+        self.fs:SetTextColor(c[1], c[2], c[3])
+    end)
+    b:SetScript("OnClick", function() onClick() end)
+    return b
 end
 
-local function buildCard()
-    card = CreateFrame("Frame", nil, ov)
-    card:SetFrameLevel(ov:GetFrameLevel() + 6)
-    card:SetWidth(CARD_W)
-    card:SetHeight(160)
-    card:EnableMouse(true)
-    card:SetBackdrop(ns.TIP_BACKDROP)
-    card:SetBackdropColor(0.05, 0.045, 0.035, 0.97)
-    card:SetBackdropBorderColor(GR, GG, GB, 0.95)
-
-    local stripe = ns.Rect(card, GR, GG, GB, 0.85, "ARTWORK")
-    stripe:SetHeight(2)
-    stripe:SetPoint("TOPLEFT", 5, -5)
-    stripe:SetPoint("TOPRIGHT", -5, -5)
-
-    card.title = ns.Text(card, 15, "LEFT", "head")
-    card.title:SetPoint("TOPLEFT", 16, -15)
-    card.count = ns.Text(card, 12, "RIGHT")
-    card.count:SetTextColor(0.55, 0.56, 0.58)
-    card.count:SetPoint("TOPRIGHT", -34, -18)
-
-    local close = CreateFrame("Button", nil, card, "UIPanelCloseButton")
-    close:SetWidth(26)
-    close:SetHeight(26)
-    close:SetPoint("TOPRIGHT", 0, -3)
-    close:SetScript("OnClick", finish)
-
-    local sep = ns.Rect(card, GR, GG, GB, 0.2, "ARTWORK")
-    sep:SetHeight(1)
-    sep:SetPoint("TOPLEFT", 14, -38)
-    sep:SetPoint("TOPRIGHT", -14, -38)
-
-    card.body = ns.Text(card, 13)
-    card.body:SetWidth(CARD_W - 32)
-    card.body:SetJustifyV("TOP")
-    card.body:SetPoint("TOPLEFT", 16, -46)
-
-    card.next = ns.MakeButton(card, 13, 80, 22)
-    card.next:SetPoint("BOTTOMRIGHT", -14, 12)
-    card.next.onClick = function() go(step + 1) end
-    card.back = ns.MakeButton(card, 13, 70, 22)
-    card.back.text:SetText("Назад")
-    card.back:SetPoint("RIGHT", card.next, "LEFT", -6, 0)
-    card.back.onClick = function() go(step - 1) end
-
-    for i = 1, #STEPS do
-        local d = CreateFrame("Button", nil, card)
-        d:SetWidth(12)
-        d:SetHeight(12)
-        d:SetPoint("BOTTOMLEFT", card, "BOTTOMLEFT", 14 + (i - 1) * 14, 17)
-        d.dot = ns.Rect(d, 1, 1, 1, 1, "ARTWORK")
-        d.dot:SetPoint("CENTER", d, "CENTER", 0, 0)
-        d:SetScript("OnClick", function() go(i) end)
-        d:SetScript("OnEnter", function(self) ns.Tip(self, "ANCHOR_TOP", STEPS[i].title) end)
-        d:SetScript("OnLeave", function() GameTooltip:Hide() end)
-        dots[i] = d
-    end
-
-    arrow = card:CreateTexture(nil, "OVERLAY")
-    arrow:SetTexture(ARROW_TEX)
-    arrow:SetWidth(ARROW)
-    arrow:SetHeight(ARROW)
-    arrow:Hide()
-    card:Hide()
-end
-
-local function build(parent)
+local function ensureFrames(parent)
     if ov then return end
     host = parent
+    if not host then return end
+
     ov = CreateFrame("Frame", "PlayerRaidsGuide", host)
-    ov:SetFrameStrata("FULLSCREEN_DIALOG")
     ov:SetAllPoints(host)
+    ov:SetFrameStrata("FULLSCREEN_DIALOG")
+    ov:EnableMouse(true)
     ov:Hide()
     tinsert(UISpecialFrames, "PlayerRaidsGuide")
 
+    ui.dim = ov:CreateTexture(nil, "BACKGROUND")
+    ui.dim:SetTexture(0, 0, 0, DIM_A)
+    ui.dim:SetAllPoints(ov)
+
+    local base = ov:GetFrameLevel()
     for i = 1, 4 do
         local b = CreateFrame("Button", nil, ov)
-        b:SetFrameLevel(ov:GetFrameLevel() + 1)
+        b:SetFrameLevel(base + 1)
         b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
         b:SetScript("OnClick", veilClick)
-        local t = ns.Rect(b, 0, 0, 0, VEIL_A, "BACKGROUND")
+        local t = b:CreateTexture(nil, "BACKGROUND")
+        t:SetTexture(0, 0, 0, DIM_A)
         t:SetAllPoints(b)
         b:Hide()
         bands[i] = b
     end
 
-    buildRing()
-    buildCard()
+    glow = CreateFrame("Frame", nil, ov)
+    glow:SetAllPoints(ov)
+    glow:SetFrameLevel(base + 2)
+    glow:Hide()
+    for i = 1, 4 do
+        local t = glow:CreateTexture(nil, "ARTWORK")
+        t:SetTexture(ns.WHITE)
+        t:Hide()
+        strips[i] = t
+    end
+    for i = 1, GLOW_SLICES do
+        local c = {}
+        for j = 1, 4 do
+            local t = glow:CreateTexture(nil, "ARTWORK")
+            t:SetTexture(ns.WHITE)
+            t:Hide()
+            c[j] = t
+        end
+        corners[i] = c
+    end
+    pulse = glow:CreateAnimationGroup()
+    local fadeAnim = pulse:CreateAnimation("Alpha")
+    fadeAnim:SetChange(-0.45)
+    fadeAnim:SetDuration(0.9)
+    pulse:SetLooping("BOUNCE")
+
+    ring = CreateFrame("Frame", nil, ov)
+    ring:SetFrameLevel(base + 3)
+    ring:SetBackdrop(RING_BACKDROP)
+    ring:SetBackdropBorderColor(GR, GG, GB, 1)
+    ring:Hide()
+
+    card = CreateFrame("Frame", "PlayerRaidsGuideCard", ov)
+    card:SetFrameStrata("FULLSCREEN_DIALOG")
+    card:SetFrameLevel(base + 5)
+    ns.StyleTip(card)
+    card:SetBackdropBorderColor(GR, GG, GB, 1)
+    card:SetWidth(CARD_W)
+
+    ui.count = card:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    ui.count:SetPoint("TOPRIGHT", -12, -11)
+
+    ui.title = ns.Text(card, 15, "LEFT", "head")
+    ui.title:SetPoint("TOPLEFT", 12, -11)
+    ui.title:SetPoint("TOPRIGHT", -46, -11)
+
+    ui.body = ns.Text(card, 13)
+    ui.body:SetPoint("TOPLEFT", ui.title, "BOTTOMLEFT", 0, -6)
+    ui.body:SetWidth(CARD_W - 24)
+    ui.body:SetJustifyV("TOP")
+
+    ui.skip = textBtn(card, finish)
+    ui.skip.fs:SetText("Пропустить")
+
+    ui.back = textBtn(card, function() go(step - 1) end)
+    ui.back.fs:SetText("Назад")
+
+    ui.next = textBtn(card, function()
+        if step >= #STEPS then finish() else go(step + 1) end
+    end)
 
     ov:SetScript("OnUpdate", function(self, e)
         since = since + e
         if dirty or since >= REFRESH then layout() end
     end)
-    ov:SetScript("OnShow", function() escape(false) end)
+    ov:SetScript("OnShow", function()
+        escape(false)
+        pulse:Play()
+    end)
     ov:SetScript("OnHide", function(self)
         escape(true)
+        pulse:Stop()
         if self:IsShown() then self:Hide() end
     end)
 end
 
 function ns.ShowGuide(parent)
-    build(parent)
+    ensureFrames(parent)
+    if not ov then return end
     step = 1
     render()
     card:Hide()
     ring:Hide()
+    glow:Hide()
     for _, b in ipairs(bands) do b:Hide() end
     dirty = true
     ov:Show()

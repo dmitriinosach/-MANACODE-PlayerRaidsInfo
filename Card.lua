@@ -56,6 +56,23 @@ local function buildChips()
     end
 end
 
+local function withIcon(fs, size, h, w)
+    fs.icon = card:CreateTexture(nil, "OVERLAY")
+    fs.icon:SetWidth(size)
+    fs.icon:SetHeight(size)
+    fs.icon:Hide()
+    fs.iconDy = math.floor((h - size) / 2)
+    fs.baseW = w
+    return fs
+end
+
+local function setIcon(fs, tex, l, r, t, b)
+    fs.iconOn = tex and true or nil
+    if not tex then return end
+    fs.icon:SetTexture(tex)
+    fs.icon:SetTexCoord(l or 0.08, r or 0.92, t or 0.08, b or 0.92)
+end
+
 local function buildTable()
     card.heads = {}
     for c = 1, #COLS do
@@ -63,6 +80,7 @@ local function buildTable()
         fs:SetTextColor(0.5, 0.52, 0.55)
         fs:SetWidth(COLS[c][2])
         fs:SetHeight(14)
+        if c >= 4 then withIcon(fs, 12, 14, COLS[c][2]) end
         card.heads[c] = fs
     end
     card.headLine = hr(card)
@@ -74,6 +92,8 @@ local function buildTable()
             local fs = ns.Text(card, 12, COLS[c][3])
             fs:SetWidth(COLS[c][2])
             fs:SetHeight(ROW_H)
+            if c == 2 then withIcon(fs, 14, ROW_H, COLS[c][2]) end
+            if c >= 4 then withIcon(fs, 13, ROW_H, COLS[c][2]) end
             row[c] = fs
         end
         card.rows[r] = row
@@ -112,11 +132,20 @@ local function build()
     card.name = ns.Text(card, 15, "LEFT", "head")
     card.hero = ns.Text(card, 12)
     card.hero:SetTextColor(1, 0.82, 0)
+    card.hero:SetText("ГН")
+    card.heroIcon = card:CreateTexture(nil, "OVERLAY")
+    card.heroIcon:SetWidth(13)
+    card.heroIcon:SetHeight(13)
+    card.heroIcon:SetTexture(ns.HERO_ICON)
+    card.heroIcon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    card.heroIcon:SetPoint("LEFT", card.name, "RIGHT", 6, 0)
+    card.hero:SetPoint("LEFT", card.heroIcon, "RIGHT", 3, 0)
+    card.heroIcon:Hide()
     card.season = ns.Text(card, 11, "RIGHT")
     card.season:SetTextColor(0.55, 0.57, 0.6)
     card.guild = ns.Text(card, 12)
     card.guild:SetTextColor(0.25, 1, 0.25)
-    card.sub = wide(13, 0.92, 0.92, 0.92, CW - INDENT)
+    card.sub = withIcon(wide(13, 0.92, 0.92, 0.92, CW - INDENT), 15, 13, CW - INDENT)
     card.was = wide(12, 0.55, 0.57, 0.6, CW - INDENT)
     card.note = wide(13, 1, 0.6, 0.2)
     card.hist = wide(11, 0.6, 0.6, 0.6)
@@ -134,9 +163,27 @@ local function build()
 end
 
 local function place(fs, x, y)
+    if fs.icon then
+        fs.icon:ClearAllPoints()
+        if fs.iconOn then
+            fs.icon:SetPoint("TOPLEFT", card, "TOPLEFT", PAD + x, -(y + fs.iconDy))
+            fs.icon:Show()
+            local shift = fs.icon:GetWidth() + 3
+            x = x + shift
+            fs:SetWidth(fs.baseW - shift)
+        else
+            fs.icon:Hide()
+            fs:SetWidth(fs.baseW)
+        end
+    end
     fs:ClearAllPoints()
     fs:SetPoint("TOPLEFT", card, "TOPLEFT", PAD + x, -y)
     fs:Show()
+end
+
+local function hideFs(fs)
+    fs:Hide()
+    if fs.icon then fs.icon:Hide() end
 end
 
 local function placeLine(fs, y, x, gap)
@@ -154,14 +201,14 @@ end
 
 local function hideBody()
     for _, o in ipairs({ card.was, card.msg, card.note, card.hist, card.countsLabel, card.recentLabel,
-        card.headLine, card.foot, card.guild, card.sub, card.hero }) do o:Hide() end
+        card.headLine, card.foot, card.guild, card.sub, card.hero, card.heroIcon }) do hideFs(o) end
     for _, t in ipairs(card.hr) do t:Hide() end
     for i = 1, 3 do card.kvLabel[i]:Hide(); card.kvValue[i]:Hide() end
     for _, c in ipairs(card.chips) do c:Hide() end
-    for _, fs in ipairs(card.heads) do fs:Hide() end
+    for _, fs in ipairs(card.heads) do hideFs(fs) end
     for _, row in ipairs(card.rows) do
         row.bg:Hide()
-        for _, fs in ipairs(row) do fs:Hide() end
+        for _, fs in ipairs(row) do hideFs(fs) end
     end
 end
 
@@ -170,41 +217,46 @@ local function bestText(b)
     return "|cff" .. ns.ParseHex(b.parse) .. b.parse .. "|r " .. ns.Color("grey", ns.BOSS[b.boss] or b.boss or "")
 end
 
-local function modeText(mode)
-    local icon = ns.IsRS(mode) and ns.RS_LFG or ns.ICC_LFG
-    return string.format("|T%s:14:14:0:0:64:64:6:58:6:58|t ", icon) .. ns.Color("note", ns.MODE_CELL[mode] or mode)
-end
-
-local function cellText(cell)
-    if not cell then return ns.Color("none", "—") end
-    local v = cell.value and ns.Color("white", ns.Compact(cell.value)) or ns.Color("grey", "танк")
-    local out = ns.RoleIcon(cell.role, 13) .. " " .. v
+local function fillCell(fs, cell)
+    if not cell then
+        setIcon(fs, nil)
+        fs:SetText(ns.Color("none", "—"))
+        return
+    end
+    local c = ns.ROLE_COORD[cell.role]
+    if c then setIcon(fs, ns.ROLE_TEX, c[1] / 64, c[2] / 64, c[3] / 64, c[4] / 64) else setIcon(fs, nil) end
+    local out = cell.value and ns.Color("white", ns.Compact(cell.value)) or ns.Color("grey", "танк")
     if cell.parse then out = out .. "  |cff" .. ns.ParseHex(cell.parse) .. cell.parse .. "|r" end
-    return out
+    fs:SetText(out)
 end
 
 local function fillRow(row, raid)
     row[1]:SetText(ns.Color("grey", ns.DayMonthYear(raid.date)))
-    row[2]:SetText(modeText(raid.mode))
+    setIcon(row[2], ns.IsRS(raid.mode) and ns.RS_LFG or ns.ICC_LFG, 6 / 64, 58 / 64, 6 / 64, 58 / 64)
+    row[2]:SetText(ns.Color("note", ns.MODE_CELL[raid.mode] or raid.mode))
     row[3]:SetText(ns.WipesText(raid.wipes))
     if ns.IsRS(raid.mode) then
-        row[4]:SetText(ns.Color("none", "—"))
-        row[5]:SetText(ns.Color("none", "—"))
-        row[6]:SetText(cellText(raid.cells[1]))
+        fillCell(row[4], nil)
+        fillCell(row[5], nil)
+        fillCell(row[6], raid.cells[1])
     else
-        for c = 1, 3 do row[3 + c]:SetText(cellText(raid.cells[c])) end
+        for c = 1, 3 do fillCell(row[3 + c], raid.cells[c]) end
     end
+end
+
+local function bossHead(fs, boss, text)
+    setIcon(fs, boss and ns.BOSS_ICON[boss])
+    fs:SetText(text or (boss and ns.BOSS[boss]) or "")
 end
 
 local function renderHead(y, hasRS, hasIcc)
     card.heads[1]:SetText("дата")
     card.heads[2]:SetText("режим")
     card.heads[3]:SetText("вайпы")
-    card.heads[4]:SetText(hasIcc and ns.BossHead("surf", 12) or "")
-    card.heads[5]:SetText(hasIcc and ns.BossHead("prof", 12) or "")
-    local last = hasIcc and ns.BossHead("lich", 12) or ns.BossHead("hal", 12)
-    if hasIcc and hasRS then last = last .. " / " .. ns.BOSS.hal end
-    card.heads[6]:SetText(last)
+    bossHead(card.heads[4], hasIcc and "surf")
+    bossHead(card.heads[5], hasIcc and "prof")
+    local lastBoss = hasIcc and "lich" or "hal"
+    bossHead(card.heads[6], lastBoss, (hasIcc and hasRS) and (ns.BOSS.lich .. " / " .. ns.BOSS.hal) or nil)
     for c = 1, #COLS do place(card.heads[c], COLS[c][1], y) end
     card.headLine:ClearAllPoints()
     card.headLine:SetPoint("TOPLEFT", card, "TOPLEFT", PAD, -(y + 15))
@@ -227,9 +279,7 @@ local function renderName(id, rec, shown, class, s)
     card.season:SetPoint("TOPRIGHT", card, "TOPRIGHT", -PAD, -(y + 4))
 
     if ns.HeroDate(rec) then
-        card.hero:SetText(string.format("|T%s:13:13:0:0:64:64:5:59:5:59|t ГН", ns.HERO_ICON))
-        card.hero:ClearAllPoints()
-        card.hero:SetPoint("LEFT", card.name, "RIGHT", 6, 0)
+        card.heroIcon:Show()
         card.hero:Show()
     end
     y = y + ICON + 2
@@ -242,15 +292,17 @@ local function renderName(id, rec, shown, class, s)
     return y
 end
 
-local function renderSub(shown, s, y)
+local function renderSub(shown, class, s, y)
     local sub = {}
-    local spec = ns.LiveSpec and ns.LiveSpec(shown)
-    if not spec and s then spec = ns.SpecRu(s.spec) end
-    if spec then tinsert(sub, spec) end
+    local live = ns.LiveSpec and ns.LiveSpec(shown)
+    local spec = live or (s and ns.SpecRu(s.spec))
+    local icon = ns.SpecIcon(class, live or (s and s.spec))
+    setIcon(card.sub, icon)
+    if not icon and spec then tinsert(sub, spec) end
     if s and s.gs then tinsert(sub, "илвл " .. s.gs) end
-    if #sub == 0 then return y end
+    if #sub == 0 and not icon then return y end
     card.sub:SetText(table.concat(sub, ", "))
-    return placeLine(card.sub, y, INDENT, 1)
+    return math.max(placeLine(card.sub, y, INDENT, 1), icon and (y + 16) or 0)
 end
 
 local function renderWas(info, id, rec, shown, y)
@@ -306,11 +358,12 @@ local function renderChips(s, y)
     return y + 18 + 4
 end
 
-local function renderBest(s, y)
+local function renderBest(s, y, class)
     local best = { s.bestD, s.bestH, s.bestT }
+    local can = ns.ClassRoles(class)
     local rows = {}
-    for i = 1, 3 do
-        if best[i] and best[i].parse then tinsert(rows, i) end
+    for i, role in ipairs({ "d", "h", "t" }) do
+        if can[role] and best[i] and best[i].parse then tinsert(rows, i) end
     end
     if #rows == 0 then rows[1] = 1 end
     for _, i in ipairs(rows) do
@@ -369,7 +422,7 @@ local function render(info)
     local class = (rec and rec.class) or info.class
 
     local y = renderName(id, rec, shown, class, s)
-    y = renderSub(shown, s, y)
+    y = renderSub(shown, class, s, y)
     y = renderWas(info, id, rec, shown, y)
     paintAmbient(shown, class, s, y + 2)
 
@@ -393,7 +446,7 @@ local function render(info)
     end
 
     y = placeHr(card.hr[1], y)
-    y = renderBest(s, y)
+    y = renderBest(s, y, class)
 
     y = placeHr(card.hr[2], y)
     place(card.countsLabel, 0, y)

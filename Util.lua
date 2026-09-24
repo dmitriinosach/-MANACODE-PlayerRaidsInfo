@@ -94,6 +94,38 @@ function ns.SpecRu(spec)
     return SPEC_RU[key] or spec
 end
 
+local SPEC_SPELL = {
+    WARRIOR = { arms = 12294, fury = 23881, protection = 23922 },
+    PALADIN = { holy = 20473, protection = 31935, retribution = 35395 },
+    HUNTER = { beastmastery = 19574, marksmanship = 53209, survival = 53301 },
+    ROGUE = { assassination = 1329, combat = 51690, subtlety = 51713 },
+    PRIEST = { discipline = 47540, holy = 47788, shadow = 15473 },
+    DEATHKNIGHT = { blood = 48266, frost = 48263, unholy = 48265 },
+    SHAMAN = { elemental = 403, enhancement = 17364, restoration = 61295 },
+    MAGE = { arcane = 30451, fire = 133, frost = 116 },
+    WARLOCK = { affliction = 48181, demonology = 47241, destruction = 50796 },
+    DRUID = { balance = 24858, feral = 768, feralcombat = 768, guardian = 9634, restoration = 33891 },
+}
+
+local function specNorm(s)
+    s = string.gsub(ns.Lower(s or ""), "[%s_%-]", "")
+    return (string.gsub(s, "\209\145", "\208\181"))
+end
+
+local SPEC_BY_RU = {}
+for key, ru in pairs(SPEC_RU) do SPEC_BY_RU[specNorm(ru)] = SPEC_BY_RU[specNorm(ru)] or key end
+SPEC_BY_RU[specNorm("Сила зверя")] = "feralcombat"
+
+function ns.SpecIcon(classFile, spec)
+    local spells = classFile and SPEC_SPELL[classFile]
+    if not spells or not spec or spec == "" then return nil end
+    local key = specNorm(spec)
+    local id = spells[key] or spells[SPEC_BY_RU[key] or ""]
+    if not id or type(GetSpellInfo) ~= "function" then return nil end
+    local _, _, icon = GetSpellInfo(id)
+    return icon
+end
+
 local CLASS_RU = {
     WARRIOR = "Воин", PALADIN = "Паладин", HUNTER = "Охотник", ROGUE = "Разбойник",
     PRIEST = "Жрец", DEATHKNIGHT = "Рыцарь смерти", SHAMAN = "Шаман", MAGE = "Маг",
@@ -177,6 +209,17 @@ local HEALERS = { PRIEST = true, PALADIN = true, DRUID = true, SHAMAN = true }
 
 function ns.CanHeal(classFile)
     return HEALERS[classFile] and true or false
+end
+
+local TANKS = { WARRIOR = true, PALADIN = true, DEATHKNIGHT = true, DRUID = true }
+local ANY_ROLE = { d = true, h = true, t = true }
+local CLASS_ROLES = {}
+for classFile in pairs(CLASS_RU) do
+    CLASS_ROLES[classFile] = { d = true, h = HEALERS[classFile] or false, t = TANKS[classFile] or false }
+end
+
+function ns.ClassRoles(classFile)
+    return classFile and CLASS_ROLES[classFile] or ANY_ROLE
 end
 
 function ns.RoleIcon(role, size)

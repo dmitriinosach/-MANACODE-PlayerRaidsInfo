@@ -33,6 +33,10 @@ local listeners = {}
 local pick = { mode = "ih", boss = 3 }
 local dirty = false
 
+local FAKE_CLASSES = { "WARRIOR", "PALADIN", "HUNTER", "ROGUE", "PRIEST", "DEATHKNIGHT", "SHAMAN", "MAGE", "WARLOCK", "DRUID" }
+local FAKE_ATTEMPTS = 3000
+local fakeOn = false
+
 local function pool(rowH)
     local screen = (GetScreenHeight and GetScreenHeight()) or 1200
     local scale = UIParent:GetEffectiveScale() or 1
@@ -41,10 +45,12 @@ local function pool(rowH)
 end
 
 function ns.InRaid()
+    if fakeOn then return true end
     return (GetNumRaidMembers and GetNumRaidMembers() or 0) > 0
 end
 
 local function scanRoster()
+    if fakeOn then return end
     roster = {}
     local n = GetNumRaidMembers and GetNumRaidMembers() or 0
     for i = 1, n do
@@ -127,7 +133,11 @@ local function updateRows()
     for i, row in ipairs(rows) do
         local e = i <= panel.nrows and list[offset + i]
         if e and e.head then
-            row.head:SetText(ns.RoleIcon(e.head, 14) .. " " .. ROLE_HEAD[e.head] .. ns.Color("dim", "  " .. e.count))
+            local c = ns.ROLE_COORD[e.head]
+            row.headIcon:SetTexture(ns.ROLE_TEX)
+            row.headIcon:SetTexCoord(c[1] / 64, c[2] / 64, c[3] / 64, c[4] / 64)
+            row.headIcon:Show()
+            row.head:SetText(ROLE_HEAD[e.head] .. ns.Color("dim", "  " .. e.count))
             row.head:Show()
             row.name:Hide(); row.avg:Hide(); row.min:Hide()
             row.id = nil
@@ -136,6 +146,7 @@ local function updateRows()
         elseif e then
             local st = e.stat
             row.head:Hide()
+            row.headIcon:Hide()
             local spec = ns.SpecRu(st.spec)
             row.name:SetText("|cff" .. ns.ClassHex(st.class) .. e.name .. "|r" .. (spec and ns.Color("dim", "  " .. spec) or ""))
             if st.avg then
@@ -228,18 +239,15 @@ local function renderPick()
     end
     local rs = ns.IsRS(pick.mode)
     for i, b in ipairs(bossBtns) do
-        if rs then
-            if i == 1 then
-                ns.FitButton(b, ns.BossHead("hal", 14), 16)
-                ns.SetButton(b, true)
-                b:Show()
-            else
-                b:Hide()
-            end
-        else
-            ns.FitButton(b, ns.BossHead(ns.ICC_BOSSES[i], 14), 16)
-            ns.SetButton(b, pick.boss == i)
+        local boss = rs and (i == 1 and "hal") or (not rs and ns.ICC_BOSSES[i])
+        if boss then
+            b.boss:SetTexture(ns.BOSS_ICON[boss])
+            b.boss:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+            ns.FitButton(b, ns.BOSS[boss] or boss, 32)
+            ns.SetButton(b, rs or pick.boss == i)
             b:Show()
+        else
+            b:Hide()
         end
     end
     local x = 5 * (TILE + 4) + 22
@@ -314,9 +322,14 @@ local function buildRow(i)
     row.odd:SetAllPoints()
     row:SetHighlightTexture(ns.WHITE)
     row:GetHighlightTexture():SetVertexColor(1, 0.82, 0, 0.08)
+    row.headIcon = row:CreateTexture(nil, "ARTWORK")
+    row.headIcon:SetWidth(14)
+    row.headIcon:SetHeight(14)
+    row.headIcon:SetPoint("LEFT", 2, 0)
+    row.headIcon:Hide()
     row.head = ns.Text(row, 12, "LEFT", "head")
     row.head:SetTextColor(1, 0.82, 0)
-    row.head:SetPoint("LEFT", 2, 0)
+    row.head:SetPoint("LEFT", row.headIcon, "RIGHT", 4, 0)
     row.name = ns.Text(row, 13)
     row.name:SetPoint("LEFT", 6, 0)
     row.name:SetHeight(ROW_H)
@@ -381,6 +394,12 @@ local function build(parent)
     for i, mode in ipairs(ns.MODES) do tiles[i] = buildTile(i, mode) end
     for i = 1, 3 do
         local b = ns.MakeButton(panel, 12, nil, 22)
+        b.boss = b:CreateTexture(nil, "OVERLAY")
+        b.boss:SetWidth(14)
+        b.boss:SetHeight(14)
+        b.boss:SetPoint("LEFT", b, "LEFT", 6, 0)
+        b.textX = 8
+        b.text:SetPoint("CENTER", b, "CENTER", 8, 0)
         b.index = i
         b.onClick = function(self)
             if not ns.IsRS(pick.mode) then setPick(nil, self.index) end
@@ -462,3 +481,77 @@ watcher:RegisterEvent("RAID_ROSTER_UPDATE")
 watcher:RegisterEvent("PARTY_MEMBERS_CHANGED")
 watcher:RegisterEvent("PLAYER_ENTERING_WORLD")
 watcher:SetScript("OnEvent", markDirty)
+
+local function shuffleFake(t)
+    for i = #t, 2, -1 do
+        local j = math.random(i)
+        t[i], t[j] = t[j], t[i]
+    end
+end
+
+local function fakeCandidate(id, season)
+    local rec = ns.Get(id)
+    if not rec then return nil end
+    local s = ns.SeasonOf(rec, season)
+    if not s or (s.raids.ih or 0) == 0 then return nil end
+    local st = ns.RaidStat(rec, "ih", 1)
+    if not st.role then return nil end
+    return st.role, { name = rec.name, class = rec.class, id = id }
+end
+
+local function buildFakeRoster()
+    local season = ns.CurrentSeason()
+    local blanks = math.random(1, 2)
+    local needT, needH, needD = 2, 5, 18 - blanks
+    local gotT, gotH, gotD = {}, {}, {}
+    if ns.DataOK() and season and type(PlayerRaidsData) == "table" then
+        local attempts = 0
+        for id in pairs(PlayerRaidsData) do
+            attempts = attempts + 1
+            if attempts > FAKE_ATTEMPTS or (#gotT >= needT and #gotH >= needH and #gotD >= needD) then break end
+            local role, m = fakeCandidate(id, season)
+            if role == "t" and #gotT < needT then
+                tinsert(gotT, m)
+            elseif role == "h" and #gotH < needH then
+                tinsert(gotH, m)
+            elseif role == "d" and #gotD < needD then
+                tinsert(gotD, m)
+            end
+        end
+    end
+    local out = {}
+    for _, m in ipairs(gotT) do tinsert(out, m) end
+    for _, m in ipairs(gotH) do tinsert(out, m) end
+    for _, m in ipairs(gotD) do tinsert(out, m) end
+    for i = 1, blanks do
+        tinsert(out, { name = "Тестовый" .. i, class = FAKE_CLASSES[math.random(#FAKE_CLASSES)], id = nil })
+    end
+    shuffleFake(out)
+    for i, m in ipairs(out) do
+        m.subgroup = ((i - 1) % 5) + 1
+    end
+    roster = out
+    fakeOn = true
+    return #out
+end
+
+SLASH_PLAYERRAIDSFAKE1 = "/raidsfake"
+SlashCmdList["PLAYERRAIDSFAKE"] = function(msg)
+    local q = string.match(msg or "", "^%s*(.-)%s*$")
+    if q == "off" then
+        if not fakeOn then
+            ns.Print("фейковый рейд и так выключен")
+            return
+        end
+        fakeOn = false
+        if ns.InRaid() then scanRoster() else roster = {} end
+        refresh()
+        for _, fn in ipairs(listeners) do fn() end
+        ns.Print("фейковый рейд выключен")
+        return
+    end
+    local n = buildFakeRoster()
+    refresh()
+    for _, fn in ipairs(listeners) do fn() end
+    ns.Print("фейковый рейд: собрано " .. n .. " " .. ns.Plural(n, "игрок", "игрока", "игроков"))
+end
