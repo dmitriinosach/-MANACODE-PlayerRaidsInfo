@@ -1894,13 +1894,16 @@ local function buildRight()
 end
 
 local OPTIONS = {
-    { "chat", "Alt на нике в чате" },
-    { "world", "Alt на игроке в мире" },
-    { "frames", "Alt на рамках: группа, рейд, цель, VuhDo" },
-    { "guild", "Alt в списке гильдии" },
-    { "altOpen", "Alt+клик по нику открывает окно" },
-    { "follow", "Окно следует за целью" },
-    { "updates", "Сообщать об обновлениях" },
+    { head = "Карточка игрока по Alt" },
+    { note = "Зажмите Alt и наведите на ник: рядом появится карточка с рейдами игрока. Где она работает:" },
+    { "chat", "ники в чате" },
+    { "world", "игроки в мире под курсором" },
+    { "frames", "рамки группы, рейда и цели, VuhDo" },
+    { "guild", "список гильдии" },
+    { head = "Окно «Рейды игроков»" },
+    { "altOpen", "Alt+клик по нику открывает игрока в окне" },
+    { "follow", "взяли игрока в цель — окно показывает его" },
+    { "updates", "сообщать в чат о новой версии аддона" },
 }
 
 local function checkRow(parent, y, text)
@@ -1920,7 +1923,6 @@ local function buildOptions()
     local current = ns.CurrentSeason()
     optPanel = CreateFrame("Frame", nil, frame)
     optPanel:SetWidth(320)
-    optPanel:SetHeight(34 + #OPTIONS * 24 + 16 + 40 + math.max(#seasons, 1) * 22 + 34)
     optPanel:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -8, -32)
     optPanel:SetFrameLevel(frame:GetFrameLevel() + 20)
     optPanel:EnableMouse(true)
@@ -1935,16 +1937,32 @@ local function buildOptions()
     close:SetPoint("TOPRIGHT", 2, 2)
 
     optPanel.checks = {}
-    for i, o in ipairs(OPTIONS) do
-        local cb = checkRow(optPanel, 8 + i * 24, o[2])
-        cb.key = o[1]
-        cb:SetScript("OnClick", function(self)
-            ns.SetOpt(self.key, self:GetChecked())
-        end)
-        optPanel.checks[i] = cb
+    local y = 34
+    for _, o in ipairs(OPTIONS) do
+        if o.head then
+            local h = ns.Text(optPanel, 13)
+            gold(h)
+            h:SetPoint("TOPLEFT", 12, -(y + 6))
+            h:SetText(o.head)
+            y = y + 26
+        elseif o.note then
+            local t = ns.Text(optPanel, 12)
+            grey(t)
+            t:SetWidth(296)
+            t:SetPoint("TOPLEFT", 12, -y)
+            t:SetText(o.note)
+            y = y + math.floor((t:GetStringHeight() or 14) + 6)
+        else
+            local cb = checkRow(optPanel, y, o[2])
+            cb.key = o[1]
+            cb:SetScript("OnClick", function(self)
+                ns.SetOpt(self.key, self:GetChecked())
+            end)
+            tinsert(optPanel.checks, cb)
+            y = y + 24
+        end
     end
-
-    local y = 8 + (#OPTIONS + 1) * 24 + 8
+    y = y + 8
     local sep = line(optPanel, 0.2)
     sep:SetPoint("TOPLEFT", optPanel, "TOPLEFT", 10, -y)
     sep:SetPoint("TOPRIGHT", optPanel, "TOPRIGHT", -10, -y)
@@ -1952,7 +1970,7 @@ local function buildOptions()
     gold(head)
     head:SetWidth(296)
     head:SetPoint("TOPLEFT", 12, -(y + 8))
-    head:SetText("Синхронизация с обновлялкой: какие сезоны скачивать")
+    head:SetText("Какие сезоны скачивать обновлялке")
     y = y + 8 + 34
 
     optPanel.seasonChecks = {}
@@ -1978,6 +1996,7 @@ local function buildOptions()
     hint:SetWidth(296)
     hint:SetPoint("TOPLEFT", 14, -y)
     hint:SetText("ОбновитьДанные.exe возьмёт это при следующем запуске")
+    optPanel:SetHeight(y + 30)
 end
 
 local function showOptions(on)
@@ -2106,19 +2125,40 @@ local function toggleHow()
 end
 
 local function headButton(anchor, tex, coord, title, onClick)
+    local disc = "Interface\\CharacterFrame\\TempPortraitAlphaMask"
     local b = CreateFrame("Button", nil, frame)
-    b:SetWidth(18)
-    b:SetHeight(18)
-    b:SetPoint("RIGHT", anchor, "LEFT", -3, 0)
-    local t = b:CreateTexture(nil, "ARTWORK")
-    t:SetAllPoints()
-    t:SetTexture(tex)
-    t:SetTexCoord(coord, 1 - coord, coord, 1 - coord)
-    b:SetHighlightTexture(ns.WHITE)
-    b:GetHighlightTexture():SetVertexColor(1, 0.82, 0, 0.25)
+    b:SetWidth(20)
+    b:SetHeight(20)
+    b:SetPoint("RIGHT", anchor, "LEFT", -2, 0)
+    b.ring = b:CreateTexture(nil, "BORDER")
+    b.ring:SetTexture(disc)
+    b.ring:SetAllPoints()
+    b.ring:SetVertexColor(1, 0.82, 0)
+    local inner = b:CreateTexture(nil, "ARTWORK")
+    inner:SetTexture(disc)
+    inner:SetVertexColor(0.07, 0.07, 0.08, 0.95)
+    inner:SetWidth(17)
+    inner:SetHeight(17)
+    inner:SetPoint("CENTER")
+    b.icon = b:CreateTexture(nil, "OVERLAY")
+    b.icon:SetTexture(tex)
+    b.icon:SetTexCoord(coord, 1 - coord, coord, 1 - coord)
+    b.icon:SetWidth(13)
+    b.icon:SetHeight(13)
+    b.icon:SetPoint("CENTER")
     b:SetScript("OnClick", onClick)
-    b:SetScript("OnEnter", function(self) ns.Tip(self, "ANCHOR_BOTTOM", title) end)
-    b:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    b:SetScript("OnEnter", function(self)
+        self.ring:SetVertexColor(1, 1, 1)
+        self.icon:SetWidth(15)
+        self.icon:SetHeight(15)
+        ns.Tip(self, "ANCHOR_BOTTOM", title)
+    end)
+    b:SetScript("OnLeave", function(self)
+        self.ring:SetVertexColor(1, 0.82, 0)
+        self.icon:SetWidth(13)
+        self.icon:SetHeight(13)
+        GameTooltip:Hide()
+    end)
     return b
 end
 
