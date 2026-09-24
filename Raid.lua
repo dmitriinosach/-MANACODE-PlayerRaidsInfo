@@ -535,6 +535,45 @@ local function buildFakeRoster()
     return #out
 end
 
+local function buildGuildRoster()
+    if not IsInGuild or not IsInGuild() then return nil, "вы не в гильдии" end
+    local showOff = GetGuildRosterShowOffline and GetGuildRosterShowOffline()
+    if SetGuildRosterShowOffline then SetGuildRosterShowOffline(true) end
+    local total = GetNumGuildMembers(true) or 0
+    local bi = ns.IsRS(pick.mode) and 1 or pick.boss
+    local byRole = { t = {}, h = {}, d = {} }
+    for i = 1, total do
+        local name, _, _, _, _, _, _, _, _, _, classFile = GetGuildRosterInfo(i)
+        local id = name and (ns.IdOf(name) or ns.FindId(name))
+        local rec = id and ns.Get(id)
+        if rec then
+            local st = ns.RaidStat(rec, pick.mode, bi)
+            if st.n and st.n > 0 and st.role and byRole[st.role] then
+                tinsert(byRole[st.role], { name = name, class = rec.class or classFile, id = id, n = st.n })
+            end
+        end
+    end
+    if SetGuildRosterShowOffline and not showOff then SetGuildRosterShowOffline(false) end
+    if total == 0 then
+        if GuildRoster then GuildRoster() end
+        return nil, "список гильдии ещё не загружен, повторите через пару секунд"
+    end
+    local need = { t = 2, h = 5, d = 18 }
+    local out, got = {}, {}
+    for _, role in ipairs({ "t", "h", "d" }) do
+        local l = byRole[role]
+        shuffleFake(l)
+        table.sort(l, function(a, b) return a.n > b.n end)
+        got[role] = math.min(#l, need[role])
+        for i = 1, got[role] do tinsert(out, l[i]) end
+    end
+    if #out == 0 then return nil, "в гильдии никто не проходил " .. (ns.MODE_FULL[pick.mode] or pick.mode) end
+    for i, m in ipairs(out) do m.subgroup = ((i - 1) % 5) + 1 end
+    roster = out
+    fakeOn = true
+    return #out, string.format("танки %d, хилы %d, ДД %d", got.t, got.h, got.d)
+end
+
 SLASH_PLAYERRAIDSFAKE1 = "/raidsfake"
 SlashCmdList["PLAYERRAIDSFAKE"] = function(msg)
     local q = string.match(msg or "", "^%s*(.-)%s*$")
@@ -548,6 +587,17 @@ SlashCmdList["PLAYERRAIDSFAKE"] = function(msg)
         refresh()
         for _, fn in ipairs(listeners) do fn() end
         ns.Print("фейковый рейд выключен")
+        return
+    end
+    if q == "guild" or q == "г" or q == "ги" then
+        local gn, info = buildGuildRoster()
+        if not gn then
+            ns.Print(info)
+            return
+        end
+        refresh()
+        for _, fn in ipairs(listeners) do fn() end
+        ns.Print("рейд из гильдии, " .. (ns.MODE_FULL[pick.mode] or pick.mode) .. ": " .. info)
         return
     end
     local n = buildFakeRoster()
