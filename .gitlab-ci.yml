@@ -1,0 +1,41 @@
+stages:
+  - build
+  - release
+
+build:release:
+  stage: build
+  image: golang:1.26-alpine
+  rules:
+    - if: $CI_COMMIT_TAG
+  script:
+    - apk add --no-cache zip
+    - cd agent && CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -ldflags="-s -w -X main.zipPass=raids-circle" -o ../ОбновитьДанные.exe . && cd ..
+    - mkdir -p dist/Manacode_PlayerRaidsInfo
+    - cp *.lua Manacode_PlayerRaidsInfo.toc README.md ОбновитьДанные.exe dist/Manacode_PlayerRaidsInfo/
+    - rm -f dist/Manacode_PlayerRaidsInfo/Data.sample.lua
+    - cd dist && zip -r "../Manacode_PlayerRaidsInfo-$CI_COMMIT_TAG.zip" Manacode_PlayerRaidsInfo && cd ..
+    - echo "BUILD_JOB_ID=$CI_JOB_ID" > build.env
+  artifacts:
+    paths:
+      - Manacode_PlayerRaidsInfo-$CI_COMMIT_TAG.zip
+    reports:
+      dotenv: build.env
+    expire_in: never
+
+release:
+  stage: release
+  image: registry.gitlab.com/gitlab-org/release-cli:latest
+  needs: ["build:release"]
+  rules:
+    - if: $CI_COMMIT_TAG
+  script:
+    - echo "release $CI_COMMIT_TAG"
+  release:
+    tag_name: $CI_COMMIT_TAG
+    name: "Manacode_PlayerRaidsInfo $CI_COMMIT_TAG"
+    description: "Аддон для WoW 3.3.5 (WoW Circle): статистика рейдов игроков. Распакуйте архив в Interface\\AddOns, запустите ОбновитьДанные.exe и выберите сезоны, в игре — /reload."
+    assets:
+      links:
+        - name: "Manacode_PlayerRaidsInfo-$CI_COMMIT_TAG.zip"
+          url: "$CI_PROJECT_URL/-/jobs/$BUILD_JOB_ID/artifacts/raw/Manacode_PlayerRaidsInfo-$CI_COMMIT_TAG.zip"
+          link_type: package

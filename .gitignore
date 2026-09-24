@@ -1,0 +1,5 @@
+.idea/
+Data.lua
+*.exe
+*.exe~
+updater.json
