@@ -331,6 +331,7 @@ local function styleTile(tile, mode, n, on)
     tile.icon:SetAlpha(empty and 0.45 or 1)
     tile.skull:SetAlpha(empty and 0.45 or 1)
     tile.size:SetAlpha(empty and 0.5 or 1)
+    tile.tag:SetAlpha(empty and 0.5 or 1)
     if tile.unbuff then tile.unbuff:SetAlpha(empty and 0.5 or 1) end
     local edge = EDGE
     if on then
@@ -341,12 +342,14 @@ local function styleTile(tile, mode, n, on)
     tile:SetBackdropBorderColor(edge[1], edge[2], edge[3], 1)
     tile.count = n
     if on then tile.mark:Show() else tile.mark:Hide() end
+    tile.caption:SetText("")
+    tile.size:SetText(n)
     if empty then
-        tile.caption:SetText(ns.Color("none", n))
+        tile.size:SetTextColor(0.6, 0.6, 0.6)
     elseif on then
-        tile.caption:SetText(ns.Color("gold", n))
+        tile.size:SetTextColor(1, 0.82, 0)
     else
-        tile.caption:SetText(ns.Color("white", n))
+        tile.size:SetTextColor(1, 1, 1)
     end
 end
 
@@ -1406,7 +1409,15 @@ local function buildModeTile(i, mode)
     tile.size:SetPoint("CENTER", tile, "CENTER", 0, 0)
     tile.size:SetShadowColor(0, 0, 0, 1)
     tile.size:SetShadowOffset(1, -1)
-    tile.size:SetText("25")
+    tile.size:SetText("0")
+
+    tile.tag = tile:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    tile.tag:SetFont(ns.FONT_BODY, 11)
+    tile.tag:SetTextColor(0.9, 0.9, 0.9)
+    tile.tag:SetShadowColor(0, 0, 0, 1)
+    tile.tag:SetShadowOffset(1, -1)
+    tile.tag:SetPoint("TOPLEFT", tile, "TOPLEFT", 5, -4)
+    tile.tag:SetText("25")
 
     if mode == "iu" then
         tile.unbuff = tile:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
