@@ -666,6 +666,34 @@ function ns.HideCopy()
     if copy then copy:Hide() end
 end
 
+local blur = CreateFrame("Frame")
+blur:Hide()
+blur:SetScript("OnUpdate", function(self)
+    local box = self.box
+    if not box then
+        self:Hide()
+        return
+    end
+    if not (IsMouseButtonDown("LeftButton") or IsMouseButtonDown("RightButton")) then return end
+    if GetMouseFocus() == box then return end
+    self.box = nil
+    self:Hide()
+    box:ClearFocus()
+end)
+
+function ns.BlurOnClick(box)
+    box:HookScript("OnEditFocusGained", function(self)
+        blur.box = self
+        blur:Show()
+    end)
+    box:HookScript("OnEditFocusLost", function(self)
+        if blur.box == self then
+            blur.box = nil
+            blur:Hide()
+        end
+    end)
+end
+
 function ns.SyncSeasons()
     PlayerRaidsDB.opts = PlayerRaidsDB.opts or {}
     local o = PlayerRaidsDB.opts

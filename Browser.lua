@@ -7,18 +7,19 @@ local LIST_TOP = 110
 local RX = 238
 local RROW_H = 20
 local BOTTOM = 34
-local GAP = 8
+local GAP = 6
 local TILE, TILE_STEP = 44, 50
 local SEARCH_LIMIT = 200
 local RECENT_LIMIT = 50
-local HEAD_Y, HEAD_H = 36, 80
+local HEAD_Y, BAND_H, AKA_H = 38, 42, 13
 local SEASON_W = 24
 local ALL_W = 38
 local ALL = "all"
-local BOSS_X = 214
-local TCOLS = { { 0, 18, "RIGHT" }, { 22, 46, "CENTER" }, { 72, 44, "LEFT" }, { 120, 46, "CENTER" }, { 170, 40, "CENTER" } }
-local HEAD_TOP = 36
-local PANEL_BORDER = { 0.43, 0.35, 0.2 }
+local BOSS_X = 196
+local TCOLS = { { 0, 18, "RIGHT" }, { 22, 38, "CENTER" }, { 64, 44, "LEFT" }, { 112, 40, "CENTER" }, { 156, 36, "CENTER" } }
+local HEAD_TOP = 34
+local VAL_W, PAR_MIN = 52, 24
+local RING_TEX = "Interface\\Buttons\\UI-Quickslot2"
 local EDGE = { 0.4, 0.4, 0.42 }
 local EDGE_UNBUFF = { 1, 0.15, 0.1 }
 local EDGE_UNBUFF_EMPTY = { 0.55, 0.1, 0.08 }
@@ -330,9 +331,8 @@ local function tileFill(t, b, role)
         if b.boss then tinsert(bits, ns.BOSS[b.boss] or b.boss) end
         if b.mode then tinsert(bits, ns.MODE_FULL[b.mode] or b.mode) end
         if b.date then tinsert(bits, ns.DayMonthYear(b.date)) end
-        local s = table.concat(bits, ", ")
-        if b.value then s = s .. "\n" .. ns.Compact(b.value) .. (role == "h" and " хпс" or " дпс") end
-        t.s:SetText(s)
+        if b.value then tinsert(bits, ns.Compact(b.value) .. (role == "h" and " хпс" or " дпс")) end
+        t.s:SetText(table.concat(bits, ", "))
         t.accent:SetVertexColor(ns.ParseRGB(b.parse))
         t.accent:Show()
     else
@@ -351,23 +351,55 @@ local function showRight(on)
 end
 
 local function renderCrest(class, shown)
-    local r, g, b = ns.ClassColor(class)
-    right.crestBox:SetBackdropBorderColor(r, g, b, 1)
     if ns.SetClassTexture(right.crest, class) then
         right.crest:SetVertexColor(1, 1, 1, 1)
         right.letter:Hide()
     else
         right.crest:SetTexture(ns.WHITE)
         right.crest:SetTexCoord(0, 1, 0, 1)
-        right.crest:SetVertexColor(r, g, b, 1)
+        right.crest:SetVertexColor(0.2, 0.2, 0.22, 1)
         right.letter:SetText(ns.FirstChar(shown))
         right.letter:Show()
     end
 end
 
 local function killLine(fs, icon, n)
-    fs:SetText(icon .. "  " .. n)
+    fs:SetText(icon .. " " .. n)
     if n > 0 then fs:SetTextColor(0.95, 0.95, 0.95) else fs:SetTextColor(0.36, 0.37, 0.4) end
+end
+
+local function layoutKills(kw)
+    local kt = right.killTile
+    local step, nb = 0, 0
+    for i, fs in ipairs(kt.boss) do
+        if fs:IsShown() then
+            nb = i
+            step = math.max(step, math.floor((fs:GetStringWidth() or 30) + 0.5))
+        end
+    end
+    for _, fs in ipairs(kt.role) do step = math.max(step, math.floor((fs:GetStringWidth() or 30) + 0.5)) end
+    step = step + 10
+    local bossesW = math.max(nb, 1) * step - 10
+    local rolesW = 3 * step - 10
+    local oneRow = 9 + bossesW + 21 + rolesW + 9 <= kw
+    local y2 = oneRow and 23 or 41
+    for i, fs in ipairs(kt.boss) do
+        fs:ClearAllPoints()
+        fs:SetPoint("TOPLEFT", kt, "TOPLEFT", 9 + (i - 1) * step, -23)
+    end
+    local rx = oneRow and (9 + bossesW + 21) or 9
+    for i, fs in ipairs(kt.role) do
+        fs:ClearAllPoints()
+        fs:SetPoint("TOPLEFT", kt, "TOPLEFT", rx + (i - 1) * step, -y2)
+    end
+    kt.sep:ClearAllPoints()
+    if oneRow then
+        kt.sep:SetPoint("TOPLEFT", kt, "TOPLEFT", 9 + bossesW + 10, -23)
+        kt.sep:Show()
+    else
+        kt.sep:Hide()
+    end
+    kt:SetHeight(oneRow and TILE or (TILE + 18))
 end
 
 local function renderKills(rec, s)
@@ -382,7 +414,7 @@ local function renderKills(rec, s)
         if boss then
             local h = hist[boss]
             local n = h and h.kills or 0
-            killLine(fs, string.format("|T%s:14:14:0:0:64:64:5:59:5:59|t", ns.BOSS_ICON[boss]), n)
+            killLine(fs, string.format("|T%s:16:16:0:0:64:64:5:59:5:59|t", ns.BOSS_ICON[boss]), n)
             tinsert(kt.bossRows, { ns.BOSS[boss], n })
             fs:Show()
         else
@@ -393,7 +425,7 @@ local function renderKills(rec, s)
     kt.roleRows = {}
     for i, role in ipairs({ "d", "h", "t" }) do
         local n = k[role] or 0
-        killLine(kt.role[i], ns.RoleIcon(role, 14), n)
+        killLine(kt.role[i], ns.RoleIcon(role, 16), n)
         tinsert(kt.roleRows, { ({ "ДД", "Хил", "Танк" })[i], n })
     end
 end
@@ -408,7 +440,9 @@ end
 
 local function renderNote()
     if right.noteBox:HasFocus() then return end
-    right.noteBox:SetText(ns.Note(state.id) or "")
+    local text = ns.Note(state.id) or ""
+    right.noteBox:SetText(text)
+    if text == "" then right.notePh:Show() else right.notePh:Hide() end
 end
 
 local function fitLine(b, text, maxW)
@@ -419,31 +453,40 @@ local function fitLine(b, text, maxW)
     b:SetWidth(w)
 end
 
-local function renderAka(others)
+local function renderAka(rec, shown, x, rowMax)
     local names = right.names
-    if others and #others > 0 then
-        local text = ns.Color("grey", "также известен как ") .. "|cffbfbfd9" .. others[1] .. "|r"
-        if #others > 1 then text = text .. " " .. ns.Color("gold", "+" .. (#others - 1)) end
-        fitLine(names, text, size.rw - 44 - 110)
-        place(names, RX + 44, 95)
-        names:Show()
-    else
+    local others = ns.OtherNames(rec, shown)
+    if #others == 0 then
         names:Hide()
+        return BAND_H
     end
+    local text = ns.Color("grey", "также известен как ") .. "|cffbfbfd9" .. others[1] .. "|r"
+    if #others > 1 then text = text .. " " .. ns.Color("gold", "+" .. (#others - 1)) end
+    names.text:SetWidth(rowMax - RX - 40)
+    names.text:SetText(text)
+    local w = math.floor((names.text:GetStringWidth() or 0) + 4)
+    names:Show()
+    if x + w <= rowMax then
+        fitLine(names, text, rowMax - x)
+        place(names, x, HEAD_Y + 23)
+        return BAND_H
+    end
+    fitLine(names, text, rowMax - RX - 40)
+    place(names, RX + 40, HEAD_Y + 25 + AKA_H)
+    return BAND_H + AKA_H
 end
 
-local function renderGuild()
+local function renderGuild(x, maxW)
     local guild = right.guild
     local e = ns.GuildOf(state.id)
-    if not e or e.cur == nil then
+    if not e or e.cur == nil or maxW < 40 then
         guild:Hide()
-        return
+        return 0
     end
     local past = 0
     for g in pairs(e.hist or {}) do
         if g ~= e.cur then past = past + 1 end
     end
-    local maxW = math.max(size.rw - 44 - 170, 60)
     if e.cur then
         guild.text:SetTextColor(0.25, 1, 0.25)
         ns.FitText(guild.text, e.cur, maxW - (past > 0 and 22 or 0))
@@ -452,26 +495,74 @@ local function renderGuild()
         guild.text:SetText("без гильдии")
     end
     if past > 0 then guild.text:SetText(guild.text:GetText() .. " " .. ns.Color("gold", "+" .. past)) end
-    place(guild, RX + 44, 62)
-    guild:SetWidth(math.floor((guild.text:GetStringWidth() or 40) + 4))
+    local w = math.floor((guild.text:GetStringWidth() or 40) + 4)
+    guild:SetWidth(w)
+    place(guild, x, HEAD_Y + 23)
     guild:Show()
+    return w + 8
 end
 
-local function renderNameLine(rec, shown)
-    right.copy.value = shown
-    right.copy:ClearAllPoints()
-    right.copy:SetPoint("LEFT", right.name, "RIGHT", 5, 0)
-    right.copy:Show()
+local function renderName(rec, shown, maxW)
+    local fs = right.name.text
+    local text = shown
+    local title = rec and ns.TitleOf(state.id)
+    if title then
+        fs:SetWidth(maxW + 400)
+        fs:SetText(shown .. "|cffe8e8e8, " .. title .. "|r")
+        if (fs:GetStringWidth() or 0) <= maxW then text = fs:GetText() end
+    end
+    fs:SetWidth(maxW + 400)
+    fs:SetText(text)
+    if (fs:GetStringWidth() or 0) > maxW then
+        ns.FitText(fs, shown, maxW)
+        text = fs:GetText() or shown
+    end
+    fitLine(right.name, text, maxW)
+    if rec then fs:SetTextColor(ns.ClassColor(rec.class)) else fs:SetTextColor(0.9, 0.9, 0.9) end
+end
+
+local function renderHeader(rec, shown, s, subText)
+    local rw = size.rw
+    local rowMax = RX + rw - 8
+    local noteW = math.max(140, math.min(220, math.floor(rw * 0.34)))
+    right.noteBox:SetWidth(noteW)
+    renderCrest(rec and rec.class, shown)
+
     local hero = rec and ns.HeroDate(rec)
     right.hero.date = hero
-    if hero then
-        right.hero:ClearAllPoints()
-        right.hero:SetPoint("LEFT", right.copy, "RIGHT", 6, 0)
-        right.hero:Show()
-    else
-        right.hero:Hide()
+    if hero then right.hero:Show() else right.hero:Hide() end
+    local nameMax = rw - 40 - noteW - 14 - 20 - (hero and (right.hero:GetWidth() + 6) or 0)
+    renderName(rec, shown, math.max(nameMax, 80))
+    right.copy.value = shown
+    right.copy:Show()
+
+    if not subText then
+        local bits = {}
+        local spec = ns.LiveSpec and ns.LiveSpec(shown)
+        if not spec and s then spec = ns.SpecRu(s.spec) end
+        if spec then tinsert(bits, spec) end
+        if s and s.gs then tinsert(bits, "илвл " .. s.gs) end
+        subText = table.concat(bits, ns.Color("dim", ", "))
     end
-    renderGuild()
+    local sub = right.sub
+    local x = RX + 40
+    sub:SetWidth(rowMax - x)
+    sub:SetText(subText)
+    local subW = math.min(math.floor((sub:GetStringWidth() or 0) + 1), rowMax - x)
+    sub:SetWidth(math.max(subW, 1))
+    place(sub, x, HEAD_Y + 23)
+    if subW > 0 then x = x + subW + 8 end
+
+    local lastText = (s and s.last and s.last ~= "") and ("последний рейд " .. ns.DayMonthYear(s.last)) or ""
+    right.last:SetText(lastText)
+    local lastW = lastText ~= "" and math.floor((right.last:GetStringWidth() or 0) + 2) or 0
+    x = x + renderGuild(x, rowMax - x - (lastW > 0 and lastW + 8 or 0))
+    if lastW > 0 then
+        right.last:SetWidth(lastW)
+        place(right.last, x, HEAD_Y + 23)
+        x = x + lastW + 8
+    end
+    state.bandH = renderAka(rec, shown, x, rowMax)
 end
 
 local function renderGearTile(s)
@@ -483,36 +574,10 @@ local function renderGearTile(s)
         return
     end
     t.big:SetText("|cff" .. ns.ParseHex(med) .. med .. "|r")
-    t.s:SetText("медиана парса на гире\n" .. seasonCaption() .. ", " .. (ns.MODE_FULL[state.mode] or state.mode))
+    t.s:SetText("медиана, " .. seasonCaption() .. ", " .. (ns.MODE_FULL[state.mode] or state.mode))
     t.accent:SetVertexColor(ns.ParseRGB(med))
     t.accent:Show()
     t:Show()
-end
-
-local function renderHeader(rec, shown, s)
-    renderCrest(rec.class, shown)
-    local title = ns.TitleOf(state.id)
-    right.name:SetText(title and (shown .. "|cffe8e8e8, " .. title .. "|r") or shown)
-    right.name:SetTextColor(ns.ClassColor(rec.class))
-    right.last:SetText((s and s.last and s.last ~= "") and ("последний рейд " .. ns.DayMonthYear(s.last)) or "")
-
-    local sub = {}
-    local spec = ns.LiveSpec and ns.LiveSpec(shown)
-    if not spec and s then spec = ns.SpecRu(s.spec) end
-    if spec then tinsert(sub, spec) end
-    if s and s.gs then tinsert(sub, "илвл " .. s.gs) end
-    right.sub:SetText(table.concat(sub, ns.Color("dim", ", ")))
-
-    ns.Ambient(frame, rec.class, PANEL_BORDER, 0.65, 0.22)
-    local r, g, b = ns.AmbientRGB(rec.class)
-    right.bandLine:SetVertexColor(r, g, b, 0.45)
-    ns.PaintWash(right.wash, rec.class, 0.35, 0)
-    ns.PaintWash(right.stripe, rec.class, 0.9, 0.12)
-    local anySpec = (s and s.spec) or (rec.seasons[1] and rec.seasons[1].spec)
-    state.art = ns.ArtFor(shown, rec.class, anySpec)
-
-    renderNameLine(rec, shown)
-    renderAka(ns.OtherNames(rec, shown))
 end
 
 local function seasonList(rec)
@@ -623,21 +688,23 @@ local function renderTiles(rec, s)
 end
 
 local function subCols(x, w)
-    local a = math.floor(w * 0.56)
-    local c = math.floor(w * 0.77)
-    return { { x, a - 2 }, { x + a, c - a }, { x + c, w - c } }
+    local p = math.max(math.floor((w - VAL_W) / 2), 16)
+    local v = w - 2 * p
+    return { { x, v }, { x + v, p }, { x + v + p, p } }
 end
 
 local function layoutColumns()
     local tw = size.rw - 24
     local bossW = math.floor((tw - BOSS_X) / 3)
+    local gap = 6
+    if bossW - gap < VAL_W + 2 * PAR_MIN then gap = 2 end
     rscroll:SetWidth(tw)
     for i, fs in ipairs(right.heads) do
         local x, w, y
         if i <= #TCOLS then
             x, w, y = TCOLS[i][1], TCOLS[i][2], 4
         else
-            x, w, y = BOSS_X + (i - #TCOLS - 1) * bossW, bossW - 6, 20
+            x, w, y = BOSS_X + (i - #TCOLS - 1) * bossW, bossW - gap, 19
         end
         local hb = right.headBtns[i]
         if hb then
@@ -650,7 +717,7 @@ local function layoutColumns()
         fs:SetPoint("BOTTOMLEFT", rscroll, "TOPLEFT", x, y)
     end
     for b = 1, 3 do
-        local sc = subCols(BOSS_X + (b - 1) * bossW, bossW - 6)
+        local sc = subCols(BOSS_X + (b - 1) * bossW, bossW - gap)
         for k = 1, 3 do
             local fs = right.subs[(b - 1) * 3 + k]
             fs:SetWidth(sc[k][2])
@@ -668,7 +735,7 @@ local function layoutColumns()
         for b = 1, 3 do
             local cs = row.cells[b]
             local x = BOSS_X + (b - 1) * bossW
-            local sc = subCols(x, bossW - 6)
+            local sc = subCols(x, bossW - gap)
             for k, fs in ipairs({ cs.val, cs.par, cs.gear }) do
                 fs:SetWidth(sc[k][2])
                 fs:ClearAllPoints()
@@ -687,21 +754,21 @@ local function layoutCtx(y)
     for i = 1, math.min(n, #right.seasons) do total = total + right.seasons[i]:GetWidth() end
     local labelW = right.seasonLabel:GetStringWidth() or 40
     local sortW = right.sortBox:GetWidth()
-    place(right.sortBox, RX + size.rw - sortW, y + 2)
+    place(right.sortBox, RX + size.rw - sortW, y + 1)
     local x = RX + math.floor(labelW + 0.5) + 8
     right.seasonLabel:ClearAllPoints()
-    right.seasonLabel:SetPoint("LEFT", frame, "TOPLEFT", RX, -(y + 11))
+    right.seasonLabel:SetPoint("LEFT", frame, "TOPLEFT", RX, -(y + 10))
     right.seasonLabel:Show()
     if total > size.rw - sortW - 16 - labelW - 8 or n > #right.seasons then
         for _, b in ipairs(right.seasons) do b:Hide() end
-        place(right.seasonDrop, x, y + 1)
+        place(right.seasonDrop, x, y)
         right.seasonDrop:Show()
         return
     end
     right.seasonDrop:Hide()
     for i, b in ipairs(right.seasons) do
         if i <= n then
-            place(b, x, y + 1)
+            place(b, x, y)
             x = x + b:GetWidth() + 3
             b:Show()
         else
@@ -712,27 +779,20 @@ end
 
 local function layoutRight()
     local rw = size.rw
-    right.noteBox:SetWidth(rw - 72)
-    right.sub:SetWidth(rw - 44 - 170)
     right.none:SetWidth(rw - 20)
     right.none:ClearAllPoints()
     right.none:SetPoint("CENTER", frame, "TOPLEFT", RX + rw / 2, -200)
     right.empty:SetWidth(rw - 60)
     right.empty:ClearAllPoints()
     right.empty:SetPoint("TOP", rscroll, "TOP", 0, -30)
-    local artW = math.min(math.floor((size.w - RX + 6) * 0.6), 420)
-    right.art:SetWidth(artW)
-    ns.PaintArt(right.art, state.art, artW, HEAD_H, 0.55)
+    local bandH = state.bandH or BAND_H
+    right.band:SetHeight(bandH)
 
-    local y = HEAD_Y + HEAD_H + 6
-    place(right.noteLabel, RX, y + 4)
-    place(right.noteBox, RX + 66, y)
-    y = y + 20 + GAP
-
+    local y = HEAD_Y + bandH + GAP
     if not right.tiles5[1]:IsShown() then return end
 
     layoutCtx(y)
-    y = y + 22 + GAP
+    y = y + 20 + GAP
 
     local shownTiles = {}
     for _, t in ipairs(right.tiles) do
@@ -740,11 +800,11 @@ local function layoutRight()
     end
     local nt = math.max(#shownTiles, 1)
     local tw = math.floor((rw - 8 * (nt - 1)) / nt)
-    local th = 44
+    local th = 40
     for _, t in ipairs(shownTiles) do
         t:SetWidth(tw)
         t.s:SetWidth(tw - 56)
-        th = math.max(th, 20 + (t.s:GetStringHeight() or 14) + 8)
+        th = math.max(th, 18 + (t.s:GetStringHeight() or 14) + 6)
     end
     for i, t in ipairs(shownTiles) do
         t:SetHeight(th)
@@ -761,10 +821,7 @@ local function layoutRight()
     local kw = math.max(rw - HIST_X, 120)
     right.killTile:SetWidth(kw)
     place(right.killTile, RX + HIST_X, y)
-    for i = 1, 3 do
-        right.killTile.role[i]:ClearAllPoints()
-        right.killTile.role[i]:SetPoint("TOPLEFT", right.killTile, "TOPLEFT", math.floor(kw / 2) + 4, -20 - (i - 1) * 14)
-    end
+    layoutKills(kw)
     y = y + TILE + 18 + GAP
 
     local top = y + HEAD_TOP
@@ -797,29 +854,13 @@ local function hideSeasonList()
     if right.seasonList then right.seasonList:Hide() end
 end
 
-local function resetAmbient()
-    ns.Ambient(frame, nil, PANEL_BORDER)
-    state.art = nil
-    right.art:Hide()
-    right.bandLine:SetVertexColor(1, 0.82, 0, 0.2)
-    right.wash:Hide()
-    right.stripe:Hide()
-end
-
 local function renderMissing()
     showRight(true)
     for _, obj in ipairs(right.dataOnly) do obj:Hide() end
     right.empty:Hide()
     raids = {}
-    resetAmbient()
     local shown = ns.NameOf(state.id) or ("#" .. tostring(state.id))
-    renderCrest(nil, shown)
-    right.name:SetText(shown)
-    right.name:SetTextColor(0.9, 0.9, 0.9)
-    right.id:SetText("id " .. tostring(state.id))
-    right.last:SetText("")
-    right.sub:SetText(ns.DataProblem() or "нет в логах")
-    renderNameLine(nil, shown)
+    renderHeader(nil, shown, nil, ns.Color("grey", ns.DataProblem() or "нет в логах"))
     renderNote()
     layoutRight()
     updateRaids()
@@ -834,14 +875,12 @@ local function renderRight(keepScroll)
             return
         end
         showRight(false)
-        resetAmbient()
         right.none:SetText(ns.DataProblem() or "Выберите игрока слева")
         raids = {}
         updateRaids()
         return
     end
     showRight(true)
-    right.id:SetText("id " .. tostring(state.id))
     renderNote()
 
     local s, why, reason
@@ -905,6 +944,7 @@ local function pickSeason(sn)
 end
 
 local function selectId(id)
+    if right.noteBox and right.noteBox:HasFocus() then right.noteBox:ClearFocus() end
     state.id = id
     ns.HideCopy()
     local rec = id and ns.Get(id)
@@ -980,6 +1020,7 @@ local function buildLeft()
         self:ClearFocus()
         if ids[1] then selectId(ids[1]) end
     end)
+    ns.BlurOnClick(searchBox)
 
     listSeg = {}
     local bw = math.floor((LEFT_W - 2) / 2)
@@ -1048,17 +1089,17 @@ local function buildTile(i)
     t.accent:SetPoint("BOTTOMLEFT", 1, 1)
     t.k = ns.Text(t, 12)
     gold(t.k)
-    t.k:SetPoint("TOPLEFT", 9, -5)
+    t.k:SetPoint("TOPLEFT", 9, -4)
     t.k:SetText(({ "Лучший парс ДД", "Лучший парс хил", "Лучший парс танк", "На своём гире" })[i])
     t:EnableMouse(true)
     t:SetScript("OnEnter", tileTip)
     t:SetScript("OnLeave", function() GameTooltip:Hide() end)
     t.big = ns.Text(t, 22)
-    t.big:SetPoint("TOPLEFT", 9, -20)
+    t.big:SetPoint("TOPLEFT", 9, -18)
     t.s = ns.Text(t, 12)
     grey(t.s)
     t.s:SetJustifyV("TOP")
-    t.s:SetPoint("TOPLEFT", 48, -21)
+    t.s:SetPoint("TOPLEFT", 48, -19)
     return t
 end
 
@@ -1168,10 +1209,16 @@ end
 local function nameTip(self)
     local rec = ns.Get(state.id)
     local lines = ns.NameHistory(state.id, rec)
-    if #lines == 0 then return end
     GameTooltip:SetOwner(self, "ANCHOR_BOTTOMLEFT")
-    GameTooltip:SetText("История ников", 1, 0.82, 0)
-    for _, l in ipairs(lines) do GameTooltip:AddLine(l, 1, 1, 1) end
+    if #lines > 0 then
+        GameTooltip:SetText("История ников", 1, 0.82, 0)
+        for _, l in ipairs(lines) do GameTooltip:AddLine(l, 1, 1, 1) end
+    else
+        GameTooltip:SetText(ns.NameOf(state.id) or (rec and rec.name) or "", 1, 0.82, 0)
+    end
+    local class = rec and ns.ClassRu(rec.class)
+    if class then GameTooltip:AddLine(class, 0.9, 0.9, 0.9) end
+    GameTooltip:AddLine("id " .. tostring(state.id), 0.5, 0.52, 0.55)
     GameTooltip:Show()
 end
 
@@ -1208,51 +1255,81 @@ local function hoverLine(onEnter, justify)
 end
 
 local function buildHeader(keep)
-    right.art = frame:CreateTexture(nil, "BORDER")
-    right.art:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -5, -HEAD_Y)
-    right.art:SetHeight(HEAD_H)
-    right.art:SetWidth(300)
-    right.art:Hide()
-    right.wash = frame:CreateTexture(nil, "ARTWORK")
-    right.wash:SetPoint("TOPLEFT", frame, "TOPLEFT", RX - 11, -HEAD_Y)
-    right.wash:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -5, -HEAD_Y)
-    right.wash:SetHeight(HEAD_H)
-    right.wash:Hide()
-    right.stripe = frame:CreateTexture(nil, "ARTWORK")
-    right.stripe:SetPoint("TOPLEFT", frame, "TOPLEFT", RX - 11, -HEAD_Y)
-    right.stripe:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -5, -HEAD_Y)
-    right.stripe:SetHeight(2)
-    right.stripe:Hide()
-    right.bandLine = keep(ns.Rect(frame, 1, 1, 1, 0.45, "ARTWORK"))
-    right.bandLine:SetHeight(1)
-    right.bandLine:SetPoint("TOPLEFT", frame, "TOPLEFT", RX - 11, -(HEAD_Y + HEAD_H))
-    right.bandLine:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -5, -(HEAD_Y + HEAD_H))
+    local lvl = frame:GetFrameLevel() + 2
+    right.band = keep(CreateFrame("Frame", nil, frame))
+    right.band:SetPoint("TOPLEFT", frame, "TOPLEFT", RX - 6, -HEAD_Y)
+    right.band:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -8, -HEAD_Y)
+    right.band:SetHeight(BAND_H)
+    right.band:SetBackdrop({ bgFile = ns.WHITE })
+    right.band:SetBackdropColor(0, 0, 0, 0.22)
+    local bandLine = line(right.band, 0.18)
+    bandLine:SetPoint("BOTTOMLEFT", right.band, "BOTTOMLEFT", 0, 0)
+    bandLine:SetPoint("BOTTOMRIGHT", right.band, "BOTTOMRIGHT", 0, 0)
 
     right.crestBox = keep(CreateFrame("Frame", nil, frame))
-    right.crestBox:SetWidth(36)
-    right.crestBox:SetHeight(36)
-    right.crestBox:SetPoint("TOPLEFT", RX - 1, -42)
-    right.crestBox:SetBackdrop({ edgeFile = ns.WHITE, edgeSize = 1 })
+    right.crestBox:SetWidth(32)
+    right.crestBox:SetHeight(32)
+    right.crestBox:SetPoint("TOPLEFT", RX, -(HEAD_Y + 5))
+    right.crestBox:SetFrameLevel(lvl)
+    local shadow = ns.Rect(right.crestBox, 0, 0, 0, 0.6, "BACKGROUND")
+    shadow:SetPoint("TOPLEFT", 2, -2)
+    shadow:SetPoint("BOTTOMRIGHT", 2, -2)
     right.crest = right.crestBox:CreateTexture(nil, "ARTWORK")
-    right.crest:SetPoint("TOPLEFT", 1, -1)
-    right.crest:SetPoint("BOTTOMRIGHT", -1, 1)
+    right.crest:SetAllPoints()
+    local ring = right.crestBox:CreateTexture(nil, "OVERLAY")
+    ring:SetTexture(RING_TEX)
+    ring:SetWidth(54)
+    ring:SetHeight(54)
+    ring:SetPoint("CENTER", 0, 0)
     right.letter = ns.Text(right.crestBox, 17, "CENTER", "head")
-    right.letter:SetTextColor(0, 0, 0)
+    right.letter:SetTextColor(0.9, 0.9, 0.9)
     right.letter:SetPoint("CENTER", 0, 0)
 
-    right.name = keep(ns.Text(frame, 17, "LEFT", "head"))
-    right.name:SetPoint("TOPLEFT", RX + 44, -42)
-    right.last = keep(ns.Text(frame, 12, "RIGHT"))
+    right.name = keep(hoverLine(nameTip))
+    right.name:SetFrameLevel(lvl)
+    right.name:SetHeight(18)
+    right.name.text:SetFont((GameFontNormal and GameFontNormal:GetFont()) or ns.FONT_HEAD, 17)
+    right.name.text:SetHeight(18)
+    right.name:SetPoint("TOPLEFT", frame, "TOPLEFT", RX + 40, -(HEAD_Y + 3))
+    right.last = ns.Text(right.band, 11)
     grey(right.last)
-    right.last:SetPoint("TOPRIGHT", -14, -45)
-    right.sub = keep(ns.Text(frame, 13))
+    right.last:SetHeight(14)
+    right.sub = ns.Text(right.band, 13)
     right.sub:SetHeight(14)
-    right.sub:SetPoint("TOPLEFT", RX + 44, -78)
-    right.id = keep(ns.Text(frame, 11, "RIGHT"))
-    dim(right.id)
-    right.id:SetPoint("TOPRIGHT", -14, -97)
+
+    right.noteBox = keep(CreateFrame("EditBox", "PlayerRaidsNote", frame, "InputBoxTemplate"))
+    right.noteBox:SetHeight(20)
+    right.noteBox:SetWidth(160)
+    right.noteBox:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -14, -(HEAD_Y + 4))
+    right.noteBox:SetFrameLevel(lvl)
+    right.noteBox:SetAutoFocus(false)
+    right.noteBox:SetMaxLetters(ns.NOTE_MAX)
+    right.noteBox:SetFont(ns.FONT_BODY, 13)
+    right.noteBox:SetTextColor(1, 0.6, 0.2)
+    right.notePh = ns.Text(right.noteBox, 12)
+    dim(right.notePh)
+    right.notePh:SetPoint("LEFT", 2, 0)
+    right.notePh:SetText("заметка")
+    right.noteBox:SetScript("OnTextChanged", function(self)
+        if (self:GetText() or "") == "" then right.notePh:Show() else right.notePh:Hide() end
+    end)
+    right.noteBox:SetScript("OnEnterPressed", function(self) self:ClearFocus() end)
+    right.noteBox:SetScript("OnEscapePressed", function(self)
+        self:SetText(ns.Note(state.id) or "")
+        self:ClearFocus()
+    end)
+    right.noteBox:SetScript("OnEditFocusLost", function(self)
+        if state.id then ns.SetNote(state.id, self:GetText()) end
+    end)
+    right.noteBox:SetScript("OnEnter", function(self)
+        ns.Tip(self, "ANCHOR_TOP", "Заметка", "Ваша пометка об игроке, до " .. ns.NOTE_MAX .. " знаков", "Enter — сохранить, Esc — отменить")
+    end)
+    right.noteBox:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    ns.BlurOnClick(right.noteBox)
 
     right.copy = CreateFrame("Button", nil, frame)
+    right.copy:SetFrameLevel(lvl)
+    right.copy:SetPoint("LEFT", right.name, "RIGHT", 4, 0)
     right.copy:SetWidth(16)
     right.copy:SetHeight(16)
     local ct = right.copy:CreateTexture(nil, "ARTWORK")
@@ -1268,6 +1345,8 @@ local function buildHeader(keep)
     end)
 
     right.hero = CreateFrame("Button", nil, frame)
+    right.hero:SetFrameLevel(lvl)
+    right.hero:SetPoint("LEFT", right.copy, "RIGHT", 6, 0)
     right.hero:SetHeight(18)
     right.hero:SetBackdrop(THIN)
     right.hero:SetBackdropColor(0.2, 0.15, 0.02, 0.95)
@@ -1286,8 +1365,14 @@ local function buildHeader(keep)
     right.hero:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
     right.names = hoverLine(nameTip)
+    right.names:SetFrameLevel(lvl)
+    right.names.text:SetFont(ns.FONT_BODY, 11)
+    right.names:SetHeight(14)
+    right.names.text:SetHeight(14)
     right.guild = hoverLine(guildTip)
-    right.guild.text:SetFont(ns.FONT_BODY, 12)
+    right.guild:SetFrameLevel(lvl)
+    right.guild:SetHeight(14)
+    right.guild.text:SetHeight(14)
     right.cond = { right.copy, right.hero, right.names, right.guild }
 end
 
@@ -1359,9 +1444,16 @@ local function buildTable(keep, data)
         dim(fs)
         right.heads[i] = fs
     end
+    local meter = ns.Text(frame, 13)
+    meter:Hide()
+    meter:SetText(ns.RoleIcon("d", 12) .. " 123.4к")
+    VAL_W = math.floor((meter:GetStringWidth() or 48) + 4)
+    meter:SetText("100")
+    PAR_MIN = math.floor((meter:GetStringWidth() or 18) + 6)
+
     right.subs = {}
     for b = 1, 3 do
-        for k, text in ipairs({ "дпс/хпс", "парс", "на гире" }) do
+        for k, text in ipairs({ "дпс", "парс", "гир" }) do
             local fs = keep(data(raidOnly(ns.Text(frame, 11, k == 1 and "LEFT" or "CENTER"))))
             fs:SetHeight(13)
             fs:SetTextColor(0.5, 0.52, 0.55)
@@ -1379,9 +1471,9 @@ local function buildTable(keep, data)
         if i > #TCOLS then
             t:SetScript("OnEnter", function(self)
                 ns.TipTable(self, "ANCHOR_TOP", "Колонки босса", {
-                    { "дпс/хпс", "урон или исцеление" },
+                    { "дпс", "урон, у хилов — исцеление" },
                     { "парс", "среди всех" },
-                    { "на гире", "тот же спек, илвл ±2" },
+                    { "гир", "парс на своём гире: тот же спек, илвл ±2" },
                     GEAR_EMPTY,
                 }, "клик по заголовку — сортировка по парсу")
             end)
@@ -1425,26 +1517,6 @@ local function buildRight()
     local function data(obj) tinsert(right.dataOnly, obj); return obj end
 
     buildHeader(keep)
-
-    right.noteLabel = keep(ns.Text(frame, 13))
-    gold(right.noteLabel)
-    right.noteLabel:SetText("Заметка:")
-    right.noteBox = keep(CreateFrame("EditBox", "PlayerRaidsNote", frame, "InputBoxTemplate"))
-    right.noteBox:SetHeight(20)
-    right.noteBox:SetAutoFocus(false)
-    right.noteBox:SetMaxLetters(ns.NOTE_MAX)
-    right.noteBox:SetFont(ns.FONT_BODY, 13)
-    right.noteBox:SetTextColor(1, 0.6, 0.2)
-    right.noteBox:SetScript("OnEnterPressed", function(self)
-        local id = state.id
-        self:ClearFocus()
-        if id then ns.SetNote(id, self:GetText()) end
-    end)
-    right.noteBox:SetScript("OnEscapePressed", function(self)
-        self:ClearFocus()
-        self:SetText(ns.Note(state.id) or "")
-    end)
-
     buildCtx(keep, data)
 
     right.tiles = { keep(data(buildTile(1))), keep(data(buildTile(2))), keep(data(buildTile(3))), keep(data(buildTile(4))) }
@@ -1467,16 +1539,18 @@ local function buildRight()
     kt:SetScript("OnLeave", function() GameTooltip:Hide() end)
     kt.title = ns.Text(kt, 12)
     gold(kt.title)
-    kt.title:SetPoint("TOPLEFT", 9, -5)
+    kt.title:SetPoint("TOPLEFT", 9, -4)
     kt.title:SetText("Убито боссов")
+    kt.sep = ns.Rect(kt, 1, 0.82, 0, 0.2, "ARTWORK")
+    kt.sep:SetWidth(1)
+    kt.sep:SetHeight(16)
     kt.boss, kt.role = {}, {}
     for i = 1, 3 do
         local b = ns.Text(kt, 13)
-        b:SetHeight(14)
-        b:SetPoint("TOPLEFT", kt, "TOPLEFT", 9, -20 - (i - 1) * 14)
+        b:SetHeight(16)
         kt.boss[i] = b
         local r = ns.Text(kt, 13)
-        r:SetHeight(14)
+        r:SetHeight(16)
         kt.role[i] = r
     end
     right.killTile = kt
@@ -1759,6 +1833,7 @@ local function buildStatus()
     howBtn.onClick = toggleHow
     local reload = reloadButton(frame)
     reload:SetPoint("RIGHT", howBtn, "LEFT", -4, 0)
+    ns.GuideTargets.reload = reload
 end
 
 local function buildWatchers()
@@ -1811,7 +1886,7 @@ local function build()
     frame:SetToplevel(true)
     frame:SetClampedToScreen(true)
     ns.StylePanel(frame)
-    ns.MakeGlow(frame, 4, 24)
+    ns.GuideTargets = {}
     frame:EnableMouse(true)
     frame:SetMovable(true)
     frame:SetResizable(true)
@@ -1846,6 +1921,13 @@ local function build()
     buildOptions()
     buildGrip()
     buildWatchers()
+
+    local gt = ns.GuideTargets
+    gt.search, gt.listTabs, gt.list = searchBox, listSeg, lscroll
+    gt.header, gt.note = right.band, right.noteBox
+    gt.seasons = { right.seasonLabel, right.seasonDrop, unpack(right.seasons) }
+    gt.bestTiles, gt.diffTiles, gt.kills = right.tiles, right.tiles5, right.killTile
+    gt.raids, gt.sort, gt.update = rscroll, right.sortBox, howBtn
 
     applySize()
     return frame
