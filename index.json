@@ -1,0 +1,48 @@
+{
+  "v": 11,
+  "baked": "2026-09-25T14:04:40Z",
+  "season": 3,
+  "seasons": [
+    3,
+    2,
+    1,
+    0
+  ],
+  "complete": true,
+  "count": 53331,
+  "files": [
+    {
+      "name": "Data.lua",
+      "season": 3,
+      "count": 53331,
+      "bytes": 29889245,
+      "zip": "season3.zip",
+      "zipBytes": 9787773
+    },
+    {
+      "name": "Data_s2.lua",
+      "season": 2,
+      "count": 14806,
+      "bytes": 6290158,
+      "zip": "season2.zip",
+      "zipBytes": 2053840
+    },
+    {
+      "name": "Data_s1.lua",
+      "season": 1,
+      "count": 14936,
+      "bytes": 6952254,
+      "zip": "season1.zip",
+      "zipBytes": 2309687
+    },
+    {
+      "name": "Data_s0.lua",
+      "season": 0,
+      "count": 10662,
+      "bytes": 4917847,
+      "zip": "season0.zip",
+      "zipBytes": 1630931
+    }
+  ],
+  "bundle": "season_all.zip"
+}
