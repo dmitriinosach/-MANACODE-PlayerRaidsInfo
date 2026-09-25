@@ -1,0 +1,55 @@
+{
+  "v": 12,
+  "baked": "2026-10-04T04:22:04Z",
+  "season": 7,
+  "seasons": [
+    7,
+    6,
+    5,
+    4
+  ],
+  "complete": true,
+  "count": 57997,
+  "files": [
+    {
+      "name": "Data.lua",
+      "season": 7,
+      "count": 57997,
+      "bytes": 51063918,
+      "zip": "season7.zip",
+      "zipBytes": 16781527
+    },
+    {
+      "name": "Data_s6.lua",
+      "season": 6,
+      "count": 14806,
+      "bytes": 7952632,
+      "zip": "season6.zip",
+      "zipBytes": 2515586
+    },
+    {
+      "name": "Data_s5.lua",
+      "season": 5,
+      "count": 14936,
+      "bytes": 8807914,
+      "zip": "season5.zip",
+      "zipBytes": 2838734
+    },
+    {
+      "name": "Data_s4.lua",
+      "season": 4,
+      "count": 10662,
+      "bytes": 6244726,
+      "zip": "season4.zip",
+      "zipBytes": 2006903
+    }
+  ],
+  "bundle": "season_all.zip",
+  "gm": {
+    "v": 1,
+    "zip": "gm/gm.zip",
+    "zipBytes": 93929,
+    "keyId": "9b5bff33",
+    "baked": "2026-10-04T04:23:05Z"
+  }
+}
