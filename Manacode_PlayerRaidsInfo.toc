@@ -1,0 +1,34 @@
+## Interface: 30300
+## Title: Manacode_PlayerRaidsInfo
+## Notes: Статистика рейдов игроков: ЦЛК и РС 25, парсы, последние рейды. Alt + наведение на игрока, окно /raids
+## Notes-ruRU: Статистика рейдов игроков: ЦЛК и РС 25, парсы, последние рейды. Alt + наведение на игрока, окно /raids
+## Author: dimondru
+## Version: 0.13.0
+## X-Date: 2026-09-25
+## SavedVariables: PlayerRaidsDB, PlayerRaidsNotes, PlayerRaidsGuilds
+## OptionalDeps: GearScore
+
+Data.stub.lua
+Data.lua
+Data_s0.lua
+Data_s1.lua
+Data_s2.lua
+Data_s3.lua
+Data_s4.lua
+Data_s5.lua
+Data_s6.lua
+Data_s7.lua
+Data_s8.lua
+Data_s9.lua
+
+Util.lua
+Names.lua
+Guilds.lua
+Logs.lua
+Raid.lua
+Spec.lua
+Card.lua
+Hover.lua
+Guide.lua
+Link.lua
+Browser.lua
