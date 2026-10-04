@@ -1,0 +1,411 @@
+{
+  "format": 13,
+  "baked": "2026-11-28T18:44:37Z",
+  "season": 7,
+  "seasons": [
+    7,
+    6,
+    5,
+    4
+  ],
+  "zones": {
+    "icc": {
+      "title": "ЦЛК",
+      "bosses": [
+        "marrowgar",
+        "deathwhisper",
+        "saurfang",
+        "festergut",
+        "rotface",
+        "putricide",
+        "council",
+        "lanathel",
+        "valithria",
+        "sindragosa",
+        "lichking"
+      ]
+    },
+    "rs": {
+      "title": "РС",
+      "bosses": [
+        "halion"
+      ]
+    },
+    "toc": {
+      "title": "ИВК",
+      "bosses": [
+        "northrendbeasts",
+        "jaraxxus",
+        "champions",
+        "valkyr",
+        "anubarak"
+      ]
+    }
+  },
+  "modes": [
+    {
+      "id": "icc25h",
+      "zone": "icc",
+      "size": 25,
+      "diff": "h",
+      "title": "ЦЛК 25 гер",
+      "flag": "u"
+    },
+    {
+      "id": "icc25n",
+      "zone": "icc",
+      "size": 25,
+      "diff": "n",
+      "title": "ЦЛК 25 об",
+      "flag": "u"
+    },
+    {
+      "id": "icc10h",
+      "zone": "icc",
+      "size": 10,
+      "diff": "h",
+      "title": "ЦЛК 10 гер",
+      "flag": "u"
+    },
+    {
+      "id": "icc10n",
+      "zone": "icc",
+      "size": 10,
+      "diff": "n",
+      "title": "ЦЛК 10 об",
+      "flag": "u"
+    },
+    {
+      "id": "rs25h",
+      "zone": "rs",
+      "size": 25,
+      "diff": "h",
+      "title": "РС 25 гер"
+    },
+    {
+      "id": "rs25n",
+      "zone": "rs",
+      "size": 25,
+      "diff": "n",
+      "title": "РС 25 об"
+    },
+    {
+      "id": "rs10h",
+      "zone": "rs",
+      "size": 10,
+      "diff": "h",
+      "title": "РС 10 гер"
+    },
+    {
+      "id": "rs10n",
+      "zone": "rs",
+      "size": 10,
+      "diff": "n",
+      "title": "РС 10 об"
+    },
+    {
+      "id": "toc25h",
+      "zone": "toc",
+      "size": 25,
+      "diff": "h",
+      "title": "ИВК 25 гер"
+    },
+    {
+      "id": "toc25n",
+      "zone": "toc",
+      "size": 25,
+      "diff": "n",
+      "title": "ИВК 25 об"
+    },
+    {
+      "id": "toc10h",
+      "zone": "toc",
+      "size": 10,
+      "diff": "h",
+      "title": "ИВК 10 гер"
+    },
+    {
+      "id": "toc10n",
+      "zone": "toc",
+      "size": 10,
+      "diff": "n",
+      "title": "ИВК 10 об"
+    }
+  ],
+  "files": [
+    {
+      "path": "Players.lua",
+      "kind": "players",
+      "rows": 83356,
+      "bytes": 14193628,
+      "sha256": "5330cec424e7c4663a0bbbce7e2d83d897ef232b13f42672467e16c681578f49",
+      "zip": "v13/players.zip",
+      "zipBytes": 3175917
+    },
+    {
+      "path": "s7.lua",
+      "kind": "season",
+      "season": 7,
+      "rows": 62276,
+      "complete": true,
+      "bytes": 11663148,
+      "sha256": "58cc4e64e3902d025a556633c3fe6188951892e28155009fcac11feb96820ac7",
+      "zip": "v13/s7.zip",
+      "zipBytes": 3080470
+    },
+    {
+      "path": "s7_icc25h.lua",
+      "kind": "mode",
+      "season": 7,
+      "zone": "icc",
+      "mode": "icc25h",
+      "rows": 26458,
+      "raids": 5050,
+      "complete": true,
+      "bytes": 14974593,
+      "sha256": "7acd189052e680cc78d281fad94ee08fbe3acc11a0808b1173f35a88e78dee25",
+      "zip": "v13/s7_icc25h.zip",
+      "zipBytes": 5569908
+    },
+    {
+      "path": "s7_icc25n.lua",
+      "kind": "mode",
+      "season": 7,
+      "zone": "icc",
+      "mode": "icc25n",
+      "rows": 45765,
+      "raids": 8408,
+      "complete": true,
+      "bytes": 28410539,
+      "sha256": "07878dc4568bf2a9c89058323e257087fb2fa2acbff4e7c3919e933e1869b768",
+      "zip": "v13/s7_icc25n.zip",
+      "zipBytes": 10631384
+    },
+    {
+      "path": "s7_icc10h.lua",
+      "kind": "mode",
+      "season": 7,
+      "zone": "icc",
+      "mode": "icc10h",
+      "rows": 16214,
+      "raids": 3686,
+      "complete": true,
+      "bytes": 4706991,
+      "sha256": "e7e0643d20ad1be9c7f44c9d7ab5d3809174ae8751f69218aae32d85b0c092a5",
+      "zip": "v13/s7_icc10h.zip",
+      "zipBytes": 1645105
+    },
+    {
+      "path": "s7_icc10n.lua",
+      "kind": "mode",
+      "season": 7,
+      "zone": "icc",
+      "mode": "icc10n",
+      "rows": 39293,
+      "raids": 12592,
+      "complete": true,
+      "bytes": 15260011,
+      "sha256": "6f46516f6d68dd9fa217607d938eea0b2e16db56d4b4bc1340f4c29bed23328e",
+      "zip": "v13/s7_icc10n.zip",
+      "zipBytes": 5496436
+    },
+    {
+      "path": "s7_rs25h.lua",
+      "kind": "mode",
+      "season": 7,
+      "zone": "rs",
+      "mode": "rs25h",
+      "rows": 12797,
+      "raids": 2890,
+      "complete": true,
+      "bytes": 2313815,
+      "sha256": "8963bd9b4b1e750636e25c97502e99acd04a3d76fa9ab06b654d5f11b88c8bdd",
+      "zip": "v13/s7_rs25h.zip",
+      "zipBytes": 796571
+    },
+    {
+      "path": "s7_rs25n.lua",
+      "kind": "mode",
+      "season": 7,
+      "zone": "rs",
+      "mode": "rs25n",
+      "rows": 34024,
+      "raids": 6860,
+      "complete": true,
+      "bytes": 5409782,
+      "sha256": "530124fb064ef0acf3232297879eecf04f9621bd2de1382773d0dd876319580b",
+      "zip": "v13/s7_rs25n.zip",
+      "zipBytes": 1892794
+    },
+    {
+      "path": "s7_rs10h.lua",
+      "kind": "mode",
+      "season": 7,
+      "zone": "rs",
+      "mode": "rs10h",
+      "rows": 1434,
+      "raids": 214,
+      "complete": true,
+      "bytes": 105371,
+      "sha256": "4d0cf2e4a08d183fd16d5b408d098f97de94b4e537b8f5ae7e3264ce8156956e",
+      "zip": "v13/s7_rs10h.zip",
+      "zipBytes": 31878
+    },
+    {
+      "path": "s7_rs10n.lua",
+      "kind": "mode",
+      "season": 7,
+      "zone": "rs",
+      "mode": "rs10n",
+      "rows": 10117,
+      "raids": 1865,
+      "complete": true,
+      "bytes": 848974,
+      "sha256": "0cd333eb415b6febaccc8373827e41e094f892ed8381c48ae5627e193c69d9e9",
+      "zip": "v13/s7_rs10n.zip",
+      "zipBytes": 269205
+    },
+    {
+      "path": "s7_toc25h.lua",
+      "kind": "mode",
+      "season": 7,
+      "zone": "toc",
+      "mode": "toc25h",
+      "rows": 7629,
+      "raids": 779,
+      "complete": true,
+      "bytes": 1715366,
+      "sha256": "23da3709626d6bf12392a19f8ce3230bc4fc4ac131a1603269d81a1ca81db73b",
+      "zip": "v13/s7_toc25h.zip",
+      "zipBytes": 607185
+    },
+    {
+      "path": "s7_toc25n.lua",
+      "kind": "mode",
+      "season": 7,
+      "zone": "toc",
+      "mode": "toc25n",
+      "rows": 28322,
+      "raids": 3046,
+      "complete": true,
+      "bytes": 6506416,
+      "sha256": "f377de1c0e721adcf044b0fc5986afe685e679c8b91188292e06837e71353676",
+      "zip": "v13/s7_toc25n.zip",
+      "zipBytes": 2325178
+    },
+    {
+      "path": "s7_toc10h.lua",
+      "kind": "mode",
+      "season": 7,
+      "zone": "toc",
+      "mode": "toc10h",
+      "rows": 7276,
+      "raids": 1220,
+      "complete": true,
+      "bytes": 1272799,
+      "sha256": "073ae07b5f8b6406d540d8049d3fa40a6645bcd753a751ab2afa7635fd00bb7c",
+      "zip": "v13/s7_toc10h.zip",
+      "zipBytes": 420923
+    },
+    {
+      "path": "s7_toc10n.lua",
+      "kind": "mode",
+      "season": 7,
+      "zone": "toc",
+      "mode": "toc10n",
+      "rows": 20016,
+      "raids": 3861,
+      "complete": true,
+      "bytes": 3757180,
+      "sha256": "bd1ba5c63d220b3274de40ca0f58efa137392642b7ee138a5a6b74fc50c1f57c",
+      "zip": "v13/s7_toc10n.zip",
+      "zipBytes": 1269028
+    },
+    {
+      "path": "s6.lua",
+      "kind": "season",
+      "season": 6,
+      "rows": 22573,
+      "complete": true,
+      "bytes": 2976941,
+      "sha256": "1c5f8d0db203093b92fd91027f34dbd43a992048873460dbf723ab8eaff72d40",
+      "zip": "v13/s6.zip",
+      "zipBytes": 755508
+    },
+    {
+      "path": "s6_icc25h.lua",
+      "kind": "mode",
+      "season": 6,
+      "zone": "icc",
+      "mode": "icc25h",
+      "rows": 22573,
+      "raids": 4118,
+      "complete": true,
+      "bytes": 11765197,
+      "sha256": "e8c6c0d19040951d0b6465c91c8df8d1298e9003e00490ef0da250f541f902a5",
+      "zip": "v13/s6_icc25h.zip",
+      "zipBytes": 4394559
+    },
+    {
+      "path": "s5.lua",
+      "kind": "season",
+      "season": 5,
+      "rows": 21468,
+      "complete": true,
+      "bytes": 2894117,
+      "sha256": "c014a9d52674148b1570d8cfeef4e15b41e13e26e9bfc0fcd66c96d6798aa62d",
+      "zip": "v13/s5.zip",
+      "zipBytes": 745595
+    },
+    {
+      "path": "s5_icc25h.lua",
+      "kind": "mode",
+      "season": 5,
+      "zone": "icc",
+      "mode": "icc25h",
+      "rows": 21468,
+      "raids": 4519,
+      "complete": true,
+      "bytes": 13276215,
+      "sha256": "5e7984121f6b0c7cf2e80ccf79b335a3860ceb97492333a9d837eaf6f07ec7ed",
+      "zip": "v13/s5_icc25h.zip",
+      "zipBytes": 5050385
+    },
+    {
+      "path": "s4.lua",
+      "kind": "season",
+      "season": 4,
+      "rows": 19379,
+      "complete": true,
+      "bytes": 2476899,
+      "sha256": "7b180ca1dee58cebb7002dbd88cc3a1251ac34223b982715076575b14272cd7f",
+      "zip": "v13/s4.zip",
+      "zipBytes": 624709
+    },
+    {
+      "path": "s4_icc25h.lua",
+      "kind": "mode",
+      "season": 4,
+      "zone": "icc",
+      "mode": "icc25h",
+      "rows": 19379,
+      "raids": 3926,
+      "complete": true,
+      "bytes": 9991176,
+      "sha256": "5aeacc546ecdd3c08249256baa614e624c9cace333c140cb088b236b784d3fbd",
+      "zip": "v13/s4_icc25h.zip",
+      "zipBytes": 3822559
+    }
+  ],
+  "bundle": {
+    "zip": "v13/all.zip",
+    "zipBytes": 52604879
+  },
+  "gm": {
+    "v": 1,
+    "zip": "gm/gm.zip",
+    "zipBytes": 819465,
+    "keyId": "9b5bff33",
+    "baked": "2026-11-28T18:41:17Z"
+  }
+}
