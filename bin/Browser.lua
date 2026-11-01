@@ -61,6 +61,7 @@ function RT.columns(all, zone)
     end
     return out
 end
+local GRIP = { size = 16, inset = 4, tex = ns.ART .. "grip", gold = { 1, 0.80, 0.30 } }
 local ARROW_UP = "Interface\\Buttons\\Arrow-Up-Up"
 local ARROW_DOWN = "Interface\\Buttons\\Arrow-Down-Up"
 local THIN = {
@@ -87,8 +88,8 @@ local function place(obj, x, y)
     obj:SetPoint("TOPLEFT", frame, "TOPLEFT", x, -y)
 end
 local function seasonCaption()
-    if state.season == ALL then return "все сезоны" end
-    return "сезон " .. tostring(state.season)
+    if state.season == ALL then return ns.T("все сезоны") end
+    return ns.T("сезон ") .. tostring(state.season)
 end
 local function parseCode(p)
     if not p then return ns.Color("none", "—") end
@@ -203,36 +204,36 @@ local function fillLeft()
     local problem = ns.DataProblem()
     if problem then
         ids = {}
-        listLabel:SetText(problem)
+        listLabel:SetText(ns.T(problem))
     elseif state.list == "raid" then
         ids = ns.RaidIds and ns.RaidIds() or {}
-        listLabel:SetText("Состав рейда, группы 1-5: " .. #ids)
+        listLabel:SetText(ns.T("Состав рейда, группы 1-5: ") .. #ids)
     elseif state.list == "ren" then
         local base = ns.Renames()
         local q = ns.Lower(string.match(state.search or "", "^%s*(.-)%s*$") or "")
         q = string.gsub(q, ",", "")
         if q == "" then
             ids = base
-            listLabel:SetText(#base > 0 and ("Ренеймов: " .. #base) or "Ренеймов нет")
+            listLabel:SetText(#base > 0 and (ns.T("Ренеймов: ") .. #base) or ns.T("Ренеймов нет"))
         else
             ids = {}
             for _, id in ipairs(base) do
                 if ns.Matches(id, q) then tinsert(ids, id) end
             end
-            listLabel:SetText("Найдено " .. #ids .. " из " .. #base)
+            listLabel:SetText(ns.T("Найдено ") .. #ids .. ns.T(" из ") .. #base)
         end
     elseif string.match(state.search, "^%s*$") then
         ids = ns.RecentSeen(RECENT_LIMIT)
-        listLabel:SetText(#ids > 0 and "Недавно встречены" or "Пока никого не встретили — введите ник")
+        listLabel:SetText(#ids > 0 and ns.T("Недавно встречены") or ns.T("Пока никого не встретили — введите ник"))
     else
         local found
         ids, found = ns.Search(state.search, SEARCH_LIMIT)
         if found == 0 then
-            listLabel:SetText("Никого с таким ником")
+            listLabel:SetText(ns.T("Никого с таким ником"))
         elseif found > SEARCH_LIMIT then
-            listLabel:SetText("Найдено " .. found .. ", показаны " .. SEARCH_LIMIT)
+            listLabel:SetText(ns.T("Найдено ") .. found .. ns.T(", показаны ") .. SEARCH_LIMIT)
         else
-            listLabel:SetText("Найдено " .. found)
+            listLabel:SetText(ns.T("Найдено ") .. found)
         end
     end
     resetScroll(lscroll)
@@ -276,7 +277,7 @@ local function fillCell(cs, raid, b)
     else
         cs.icon:Hide()
     end
-    cs.val:SetText(cell.value and ns.Color("white", ns.Compact(cell.value)) or ns.Color("grey", "танк"))
+    cs.val:SetText(cell.value and ns.Color("white", ns.Compact(cell.value)) or ns.Color("grey", ns.T("танк")))
     cs.par:SetText(parseCode(cell.parse))
 end
 local function cellTip(self)
@@ -284,10 +285,10 @@ local function cellTip(self)
     local cell = raid and bi and raid.cells[bi]
     if not cell then return end
     local boss = ns.RaidBosses(raid)[bi]
-    local rows = { { "Дата", ns.DayMonthYearFull(raid.date) } }
-    tinsert(rows, { RT.roleWord[cell.role] or "Значение", cell.value and (ns.Thousands(cell.value) .. (cell.role == "h" and " хпс" or " дпс")) or "—" })
-    tinsert(rows, { "Парс", parseCode(cell.parse) })
-    if cell.unbuff then tinsert(rows, { "Анбаф", ns.Color(RT.unbuffHex, "да") }) end
+    local rows = { { ns.T("Дата"), ns.DayMonthYearFull(raid.date) } }
+    tinsert(rows, { ns.T(RT.roleWord[cell.role] or "Значение"), cell.value and (ns.Thousands(cell.value) .. (cell.role == "h" and ns.T(" хпс") or ns.T(" дпс"))) or "—" })
+    tinsert(rows, { ns.T("Парс"), parseCode(cell.parse) })
+    if cell.unbuff then tinsert(rows, { ns.T("Анбаф"), ns.Color(RT.unbuffHex, ns.T("да")) }) end
     local ctx = {}
     local spec = ns.SpecRu(raid.spec)
     if not spec or ns.SpecRole(raid.spec) ~= cell.role then spec = ({ d = "ДД", h = "хил", t = "танк" })[cell.role] end
@@ -308,20 +309,20 @@ local function raidTip(self)
     local info = raid and ns.RaidInfo(raid)
     if not info then return end
     local rows = {}
-    if info.leader then tinsert(rows, { "Лидер", info.leader }) end
-    tinsert(rows, { "Гильдия", info.guild and ns.Color("green", info.guild) or ns.Color("grey", "сборный рейд") })
-    if info.killed and info.total then tinsert(rows, { "Убито боссов", info.killed .. " из " .. info.total }) end
-    tinsert(rows, { "Вайпов за вечер", ns.WipesText(info.wipes) })
+    if info.leader then tinsert(rows, { ns.T("Лидер"), info.leader }) end
+    tinsert(rows, { ns.T("Гильдия"), info.guild and ns.Color("green", info.guild) or ns.Color("grey", ns.T("сборный рейд")) })
+    if info.killed and info.total then tinsert(rows, { ns.T("Убито боссов"), info.killed .. ns.T(" из ") .. info.total }) end
+    tinsert(rows, { ns.T("Вайпов за вечер"), ns.WipesText(info.wipes) })
     local dur = durationText(info.minutes)
-    if dur then tinsert(rows, { "Длительность", dur }) end
-    if info.hero then tinsert(rows, { "Герой Нордскола", "получен в этом рейде" }) end
-    if raid.unbuff then tinsert(rows, { "Анбаф", ns.Color(RT.unbuffHex, "был на части боссов") }) end
+    if dur then tinsert(rows, { ns.T("Длительность"), dur }) end
+    if info.hero then tinsert(rows, { ns.T("Герой Нордскола"), ns.T("получен в этом рейде") }) end
+    if raid.unbuff then tinsert(rows, { ns.T("Анбаф"), ns.Color(RT.unbuffHex, ns.T("был на части боссов")) }) end
     if #info.bossWipes > 0 then
-        tinsert(rows, ns.Color("gold", "Вайпы по боссам"))
+        tinsert(rows, ns.Color("gold", ns.T("Вайпы по боссам")))
         for _, e in ipairs(info.bossWipes) do tinsert(rows, { ns.BossName(e.code), ns.WipesText(e.n) }) end
     end
     if #info.watchers > 0 then
-        tinsert(rows, ns.Color("gold", "Смотрели рейд: " .. info.watcherCount))
+        tinsert(rows, ns.Color("gold", ns.T("Смотрели рейд: ") .. info.watcherCount))
         for _, e in ipairs(info.watchers) do
             local names = {}
             for i, name in ipairs(e.names) do
@@ -345,11 +346,11 @@ local function liveNote(name, rs)
     local live, st = ns.LiveKills(name)
     if live then
         local has = (rs == nil and live.any) or (rs == true and live.anyRs) or (rs == false and live.anyIcc)
-        if not has then return ns.Color("grey", "По статистике из игры килов тоже нет") end
-        return ns.Color("grey", "Статистика из игры:") .. "\n" .. table.concat(ns.LiveKillsLines(live, rs), "\n")
+        if not has then return ns.Color("grey", ns.T("По статистике из игры килов тоже нет")) end
+        return ns.Color("grey", ns.T("Статистика из игры:")) .. "\n" .. table.concat(ns.LiveKillsLines(live, rs), "\n")
     end
-    if st == "wait" then return "Смотрю статистику персонажа..." end
-    if st == "far" then return "Когда персонаж рядом, покажу его ачивки и килы боссов." end
+    if st == "wait" then return ns.T("Смотрю статистику персонажа...") end
+    if st == "far" then return ns.T("Когда персонаж рядом, покажу его ачивки и килы боссов.") end
     return nil
 end
 local function updateRaids()
@@ -361,7 +362,7 @@ local function updateRaids()
         row.raid = raid and not raid.sep and raid or nil
         if raid and raid.sep then
             showRaidRow(row, false)
-            row.sep:SetText("Сезон " .. raid.sep)
+            row.sep:SetText(ns.T("Сезон ") .. raid.sep)
             row.odd:Hide()
             row:Show()
         elseif raid then
@@ -389,7 +390,7 @@ local function updateRaids()
         local text = state.modeMsg or state.seasonMsg
         if not text then
             text = type(state.season) == "number" and ns.SeasonEmptyText(state.season, "рейдов в этой сложности")
-                or "Нет рейдов в этой сложности"
+                or ns.T("Нет рейдов в этой сложности")
         end
         local extra = state.id and not state.modeMsg and liveNote(ns.NameOf(state.id), RT.liveRS(state.mode))
         if extra then text = text .. "\n\n" .. extra end
@@ -883,7 +884,7 @@ local function buildGM()
             fillGM()
         end
         b.tip = function(self)
-            if self.off then ns.Tip(self, "ANCHOR_TOP", self.sec, "Нет в выгрузке") end
+            if self.off then ns.Tip(self, "ANCHOR_TOP", self.sec, ns.T("Нет в выгрузке")) end
         end
         b:Hide()
         gmPanel.tabs[i] = b
@@ -933,7 +934,7 @@ function fillGM()
     gmPanel:ClearAllPoints()
     gmPanel:SetPoint("TOPLEFT", frame, "TOPLEFT", RX - 6, -(HEAD_Y + (state.bandH or BAND_H)))
     gmPanel:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -8, 32)
-    gmPanel.title:SetText("Вещи: " .. (ns.NameOf(state.id) or ("#" .. tostring(state.id))))
+    gmPanel.title:SetText(ns.T("Вещи: ") .. (ns.NameOf(state.id) or ("#" .. tostring(state.id))))
     local w = math.max(size.rw - 36, 100)
     local S, STEP, P = GM.S, GM.STEP, GM.PAD
     gmPanel.child:SetWidth(w)
@@ -1151,10 +1152,10 @@ local function killTip(self)
     for _, r in ipairs(self.bossRows or {}) do tinsert(rows, r) end
     for _, r in ipairs(self.roleRows or {}) do tinsert(rows, r) end
     if #(self.seasonRows or {}) > 0 then
-        tinsert(rows, ns.Color("gold", "По боссам, " .. seasonCaption()))
+        tinsert(rows, ns.Color("gold", ns.T("По боссам, ") .. seasonCaption()))
         for _, r in ipairs(self.seasonRows) do tinsert(rows, r) end
     end
-    ns.TipTable(self, "ANCHOR_TOP", "Убито боссов за все сезоны — " .. ns.ModeFull(state.mode), rows)
+    ns.TipTable(self, "ANCHOR_TOP", ns.T("Убито боссов за все сезоны — ") .. ns.ModeFull(state.mode), rows)
 end
 local function renderNote()
     if right.noteBox:HasFocus() then return end
@@ -1207,7 +1208,7 @@ local function renderGuild(x, maxW)
         ns.FitText(guild.text, e.cur, maxW - (past > 0 and 22 or 0))
     else
         guild.text:SetTextColor(0.62, 0.62, 0.62)
-        guild.text:SetText("без гильдии")
+        guild.text:SetText(ns.T("без гильдии"))
     end
     if past > 0 then guild.text:SetText(guild.text:GetText() .. " " .. ns.Color("gold", "+" .. past)) end
     local w = math.floor((guild.text:GetStringWidth() or 40) + 4)
@@ -1355,18 +1356,18 @@ local function statTip(self)
     local unit = self.role == "h" and "хпс" or "дпс"
     local rows = {}
     if st.top then
-        tinsert(rows, { "Лучше, чем у", ns.StatScore(st) .. "% спека" })
-        if st.place and st.topOf then tinsert(rows, { "Место", ns.Thousands(st.place) .. " из " .. ns.Thousands(st.topOf) }) end
+        tinsert(rows, { ns.T("Лучше, чем у"), ns.StatScore(st) .. ns.T("% спека") })
+        if st.place and st.topOf then tinsert(rows, { ns.T("Место"), ns.Thousands(st.place) .. ns.T(" из ") .. ns.Thousands(st.topOf) }) end
     end
     if st.better then tinsert(rows, { ns.StatIlvl(st), ns.StatBracket(st) }) end
-    if st.avg then tinsert(rows, { "Средний " .. unit, ns.Thousands(st.avg) }) end
+    if st.avg then tinsert(rows, { ns.T("Средний ") .. unit, ns.Thousands(st.avg) }) end
     local marks = {}
     for _, b in ipairs(ns.TopBadges(self.badges, self.role)) do tinsert(marks, ns.BadgeText(b)) end
-    if #marks > 0 then tinsert(rows, { "Значки", ns.Color("gold", table.concat(marks, ", ")) }) end
-    if st.top then tinsert(rows, "Место — по лучшему " .. unit .. " на каждом боссе.") end
-    if st.better then tinsert(rows, "Илвл — средний " .. unit .. " среди одетых так же.") end
+    if #marks > 0 then tinsert(rows, { ns.T("Значки"), ns.Color("gold", table.concat(marks, ", ")) }) end
+    if st.top then tinsert(rows, ns.T("Место — по лучшему ") .. unit .. ns.T(" на каждом боссе.")) end
+    if st.better then tinsert(rows, ns.T("Илвл — средний ") .. unit .. ns.T(" среди одетых так же.")) end
     ns.TipTable(self, "ANCHOR_TOP", (self.kText or "") .. ": " .. (ns.SpecRu(st.spec) or st.spec or "?"), rows,
-        self.statSeason and ("сезон " .. self.statSeason) or nil)
+        self.statSeason and (ns.T("сезон ") .. self.statSeason) or nil)
 end
 local function renderAvgTile(rec, s)
     local t = right.tiles[4]
@@ -1413,7 +1414,7 @@ end
 local function seasonTip(self)
     if not self.off or not self.season then return end
     if self.season == ALL then
-        ns.Tip(self, "ANCHOR_TOP", "Все сезоны", "Нет данных по игроку ни в одном скачанном сезоне")
+        ns.Tip(self, "ANCHOR_TOP", ns.T("Все сезоны"), ns.T("Нет данных по игроку ни в одном скачанном сезоне"))
         return
     end
     local rec = ns.Get(state.id)
@@ -1422,7 +1423,7 @@ local function seasonTip(self)
     if why == "notdownloaded" and ns.HadSeason(rec, self.season) then
         msg = "Рейды в этом сезоне есть, но " .. string.gsub(msg, "^Сезон", "сезон")
     end
-    ns.Tip(self, "ANCHOR_TOP", "Сезон " .. self.season, msg or ("Нет данных по игроку в сезоне " .. self.season))
+    ns.Tip(self, "ANCHOR_TOP", ns.T("Сезон ") .. self.season, msg or (ns.T("Нет данных по игроку в сезоне ") .. self.season))
 end
 local function fullSeason(rec, sn)
     if not rec or not seasonEmpty(rec, sn) then return sn end
@@ -1432,7 +1433,7 @@ local function fullSeason(rec, sn)
     return sn
 end
 local function seasonLabel(sn)
-    if sn == ALL then return "ВСЕ" end
+    if sn == ALL then return ns.T("ВСЕ") end
     return tostring(sn)
 end
 local function renderSeasons(rec)
@@ -1481,25 +1482,25 @@ local function tileTip(self)
             if a then
                 local who = r == "h" and "Хил" or "ДД"
                 local sp = right.avgSpec and right.avgSpec[r]
-                if sp and sp.name then tinsert(rows, { who .. ", чаще всего", sp.name }) end
-                tinsert(rows, { who .. ", в среднем", ns.Compact(a.avg) .. (r == "h" and " хпс" or " дпс") })
-                tinsert(rows, { who .. ", боссов и рейдов", a.n .. " / " .. a.raids })
+                if sp and sp.name then tinsert(rows, { who .. ns.T(", чаще всего"), sp.name }) end
+                tinsert(rows, { who .. ns.T(", в среднем"), ns.Compact(a.avg) .. (r == "h" and ns.T(" хпс") or ns.T(" дпс")) })
+                tinsert(rows, { who .. ns.T(", боссов и рейдов"), a.n .. " / " .. a.raids })
             end
         end
-        ns.TipTable(self, "ANCHOR_TOP", "Средние показатели", rows, ns.ModeFull(state.mode) .. ", " .. seasonCaption())
+        ns.TipTable(self, "ANCHOR_TOP", ns.T("Средние показатели"), rows, ns.ModeFull(state.mode) .. ", " .. seasonCaption())
         return
     end
     local b = self.best
     if not b then
-        ns.TipTable(self, "ANCHOR_TOP", self.kText or "", { RT.bestFrom }, seasonCaption())
+        ns.TipTable(self, "ANCHOR_TOP", self.kText or "", { ns.T(RT.bestFrom) }, seasonCaption())
         return
     end
-    local rows = { { "Босс", ns.BossName(b.boss) } }
-    tinsert(rows, { "Сложность", ns.ModeFull(b.mode) })
-    if b.unbuff then tinsert(rows, { "Анбаф", ns.Color(RT.unbuffHex, "да") }) end
-    tinsert(rows, { "Дата", ns.DayMonthYearFull(b.date) })
+    local rows = { { ns.T("Босс"), ns.BossName(b.boss) } }
+    tinsert(rows, { ns.T("Сложность"), ns.ModeFull(b.mode) })
+    if b.unbuff then tinsert(rows, { ns.T("Анбаф"), ns.Color(RT.unbuffHex, ns.T("да")) }) end
+    tinsert(rows, { ns.T("Дата"), ns.DayMonthYearFull(b.date) })
     if b.value then
-        tinsert(rows, { self.role == "h" and "Исцеление" or "Урон", ns.Compact(b.value) .. (self.role == "h" and " хпс" or " дпс") })
+        tinsert(rows, { self.role == "h" and ns.T("Исцеление") or ns.T("Урон"), ns.Compact(b.value) .. (self.role == "h" and ns.T(" хпс") or ns.T(" дпс")) })
     end
     tinsert(rows, RT.bestFrom)
     ns.TipTable(self, "ANCHOR_TOP", self.kText or "", rows, seasonCaption())
@@ -1606,7 +1607,7 @@ function RT.layoutPager(tab)
     end
     p.prev:ClearAllPoints()
     p.prev:SetPoint("LEFT", p.pick, "RIGHT", 4, 0)
-    p.text:SetText((tab.off + 1) .. "-" .. (tab.off + tab.nb) .. " из " .. tab.total)
+    p.text:SetText((tab.off + 1) .. "-" .. (tab.off + tab.nb) .. ns.T(" из ") .. tab.total)
     p.text:ClearAllPoints()
     p.text:SetPoint("LEFT", p.prev, "RIGHT", 1, 0)
     p.next:ClearAllPoints()
@@ -1727,7 +1728,7 @@ end
 local function badgeTip(self)
     if not self.badge then return end
     ns.TipTable(self, "ANCHOR_TOP", ns.BadgeText(self.badge), { ns.BadgeLine(self.badge) },
-        self.season and ("сезон " .. self.season) or nil)
+        self.season and (ns.T("сезон ") .. self.season) or nil)
 end
 local function layoutCtx(y)
     local n = right.seasonN or 0
@@ -1905,7 +1906,7 @@ local function renderRight(keepScroll)
             return
         end
         showRight(false)
-        right.none:SetText(ns.DataProblem() or "Выберите игрока слева")
+        right.none:SetText(ns.DataProblem() or ns.T("Выберите игрока слева"))
         raids = {}
         updateRaids()
         return
@@ -1997,8 +1998,8 @@ local function updateStatus()
     ns.SetButton(howBtn, false)
     local meta = ns.Meta()
     local n = tonumber(meta.count) or ns.Total()
-    status:SetText("выгрузка " .. ns.BakedText() .. ", "
-        .. n .. " " .. ns.Plural(n, "игрок", "игрока", "игроков"))
+    status:SetText(ns.T("выгрузка ") .. ns.BakedText() .. ", "
+        .. n .. " " .. ns.Plural(n, ns.T("игрок"), ns.T("игрока"), ns.T("игроков")))
     if right.placeVer then right.placeVer() end
 end
 local function applySize()
@@ -2052,7 +2053,7 @@ local function buildLeft()
     placeholder = ns.Text(searchBox, 13)
     placeholder:SetTextColor(0.4, 0.4, 0.4)
     placeholder:SetPoint("LEFT", 2, 0)
-    placeholder:SetText("Ник")
+    placeholder:SetText(ns.T("Ник"))
     searchBox:SetScript("OnTextChanged", function(self)
         local text = self:GetText() or ""
         if text == "" then placeholder:Show() else placeholder:Hide() end
@@ -2069,7 +2070,7 @@ local function buildLeft()
     listSeg = {}
     for i, it in ipairs({ { "all", "Все" }, { "ren", "Ренеймы" }, { "raid", "Рейд" } }) do
         local b = ns.MakeButton(frame, 13, 60, 20)
-        b.text:SetText(it[2])
+        b.text:SetText(ns.T(it[2]))
         b.list = it[1]
         b.onClick = function(self)
             local was = state.list
@@ -2212,7 +2213,7 @@ local function buildModeTile(i, mode)
     else
         tile.unbuff:SetPoint("TOPRIGHT", tile, "TOPRIGHT", -5, -4)
     end
-    tile.unbuff:SetText("А")
+    tile.unbuff:SetText(ns.T("А"))
     tile.unbuff:Hide()
     tile.mark = ns.Rect(frame, 1, 0.82, 0, 0.9, "ARTWORK")
     tile.mark:SetHeight(2)
@@ -2224,8 +2225,8 @@ local function buildModeTile(i, mode)
     end)
     tile:SetScript("OnEnter", function(self)
         local rows = { { "Рейдов", self.count or 0 } }
-        if (self.flagged or 0) > 0 then tinsert(rows, { "Из них с анбафом", ns.Color(RT.unbuffHex, self.flagged) }) end
-        if self.missing then tinsert(rows, ns.Color("ff9933", "Не скачаны — отметьте их в ManacodeUpdate")) end
+        if (self.flagged or 0) > 0 then tinsert(rows, { ns.T("Из них с анбафом"), ns.Color(RT.unbuffHex, self.flagged) }) end
+        if self.missing then tinsert(rows, ns.Color("ff9933", ns.T("Не скачаны — отметьте их в ManacodeUpdate"))) end
         ns.TipTable(self, "ANCHOR_TOP", m.full, rows, seasonCaption())
     end)
     tile:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -2281,7 +2282,7 @@ local function nameTip(self)
     local lines = ns.NameHistory(state.id, rec)
     GameTooltip:SetOwner(self, "ANCHOR_BOTTOMLEFT")
     if #lines > 0 then
-        GameTooltip:SetText("История ников", 1, 0.82, 0)
+        GameTooltip:SetText(ns.T("История ников"), 1, 0.82, 0)
         for _, l in ipairs(lines) do GameTooltip:AddLine(l, 1, 1, 1) end
     else
         GameTooltip:SetText(ns.NameOf(state.id) or (rec and rec.name) or "", 1, 0.82, 0)
@@ -2294,21 +2295,21 @@ local function nameTip(self)
 end
 local function guildTip(self)
     GameTooltip:SetOwner(self, "ANCHOR_BOTTOMLEFT")
-    GameTooltip:SetText("Гильдии", 1, 0.82, 0)
+    GameTooltip:SetText(ns.T("Гильдии"), 1, 0.82, 0)
     local lines = ns.GuildLines(state.id)
     if #lines == 0 then
-        GameTooltip:AddLine("гильдия ещё не встречалась", 0.62, 0.62, 0.62)
+        GameTooltip:AddLine(ns.T("гильдия ещё не встречалась"), 0.62, 0.62, 0.62)
     end
     for _, g in ipairs(lines) do
         GameTooltip:AddDoubleLine(g.name, ns.DayText(g.first) .. " - " .. ns.DayText(g.last), 1, 1, 1, 0.62, 0.62, 0.62)
     end
-    GameTooltip:AddLine("по вашим наблюдениям", 0.42, 0.44, 0.46)
+    GameTooltip:AddLine(ns.T("по вашим наблюдениям"), 0.42, 0.44, 0.46)
     GameTooltip:Show()
 end
 local function heroTip(self)
     if not self.date then return end
-    ns.TipTable(self, "ANCHOR_BOTTOM", "Герой Нордскола",
-        { "Король-лич в ЦЛК 25 анбаф, у рейда ни одного вайпа", { "Дата", ns.DayMonthYearFull(self.date) } })
+    ns.TipTable(self, "ANCHOR_BOTTOM", ns.T("Герой Нордскола"),
+        { ns.T("Король-лич в ЦЛК 25 анбаф, у рейда ни одного вайпа"), { ns.T("Дата"), ns.DayMonthYearFull(self.date) } })
 end
 local function hoverLine(onEnter, justify)
     local b = CreateFrame("Button", nil, frame)
@@ -2394,7 +2395,7 @@ local function buildHeader(keep)
     right.notePh = ns.Text(right.noteBox, 12)
     dim(right.notePh)
     right.notePh:SetPoint("LEFT", 2, 0)
-    right.notePh:SetText("заметка")
+    right.notePh:SetText(ns.T("заметка"))
     right.noteBox:SetScript("OnTextChanged", function(self)
         if (self:GetText() or "") == "" then right.notePh:Show() else right.notePh:Hide() end
     end)
@@ -2407,16 +2408,16 @@ local function buildHeader(keep)
         if state.id then ns.SetNote(state.id, self:GetText()) end
     end)
     right.noteBox:SetScript("OnEnter", function(self)
-        ns.Tip(self, "ANCHOR_TOP", "Заметка", "Ваша пометка об игроке, до " .. ns.NOTE_MAX .. " знаков", "Enter — сохранить, Esc — отменить")
+        ns.Tip(self, "ANCHOR_TOP", ns.T("Заметка"), ns.T("Ваша пометка об игроке, до ") .. ns.NOTE_MAX .. ns.T(" знаков"), ns.T("Enter — сохранить, Esc — отменить"))
     end)
     right.noteBox:SetScript("OnLeave", function() GameTooltip:Hide() end)
     ns.BlurOnClick(right.noteBox)
     right.gm = ns.MakeButton(frame, 12, nil, 20)
-    ns.FitButton(right.gm, "Вещи", 18)
+    ns.FitButton(right.gm, ns.T("Вещи"), 18)
     right.gm:SetFrameLevel(lvl)
     right.gm:SetPoint("RIGHT", right.noteBox, "LEFT", -10, 0)
     right.gm.onClick = function() toggleGM() end
-    right.gm.tip = function(self) ns.Tip(self, "ANCHOR_TOP", "Данные для ГМ", "Надетые вещи, банки, золото, таланты и профессии", "Кнопка есть только у ГМ с ключом") end
+    right.gm.tip = function(self) ns.Tip(self, "ANCHOR_TOP", ns.T("Данные для ГМ"), ns.T("Надетые вещи, банки, золото, таланты и профессии"), ns.T("Кнопка есть только у ГМ с ключом")) end
     right.gm:Hide()
     right.copy = CreateFrame("Button", nil, frame)
     right.copy:SetFrameLevel(lvl)
@@ -2428,7 +2429,7 @@ local function buildHeader(keep)
     ct:SetTexture(ns.COPY_TEX)
     right.copy:SetHighlightTexture(ns.WHITE)
     right.copy:GetHighlightTexture():SetVertexColor(1, 0.82, 0, 0.22)
-    right.copy:SetScript("OnEnter", function(self) ns.Tip(self, "ANCHOR_TOP", "Скопировать ник") end)
+    right.copy:SetScript("OnEnter", function(self) ns.Tip(self, "ANCHOR_TOP", ns.T("Скопировать ник")) end)
     right.copy:SetScript("OnLeave", function() GameTooltip:Hide() end)
     right.copy:SetScript("OnClick", function(self)
         GameTooltip:Hide()
@@ -2449,7 +2450,7 @@ local function buildHeader(keep)
     hi:SetTexCoord(0.08, 0.92, 0.08, 0.92)
     local ht = ns.Text(right.hero, 12, "LEFT", "head")
     ht:SetPoint("LEFT", hi, "RIGHT", 3, 0)
-    ht:SetText("ГН")
+    ht:SetText(ns.T("ГН"))
     right.hero:SetWidth(math.floor(2 + 14 + 3 + (ht:GetStringWidth() or 16) + 6))
     right.hero:SetScript("OnEnter", heroTip)
     right.hero:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -2520,15 +2521,15 @@ end
 local function seasonsInfoTip(self)
     local rows = {}
     for _, e in ipairs(ns.SEASON_CIRCLE) do
-        tinsert(rows, { "Сезон " .. e.sn, e.dates })
+        tinsert(rows, { ns.T("Сезон ") .. e.sn, e.dates })
     end
-    ns.TipTable(self, "ANCHOR_TOP", "Сезоны WoW Circle", rows)
+    ns.TipTable(self, "ANCHOR_TOP", ns.T("Сезоны WoW Circle"), rows)
 end
 local function buildCtx(keep, data)
     right.seasonInfo = keep(data(roundButton("Interface\\FriendsFrame\\InformationIcon", 0.0625, seasonsInfoTip)))
     right.seasonLabel = keep(data(ns.Text(frame, 11, "LEFT", "head")))
     right.seasonLabel:SetTextColor(0.75, 0.62, 0.3)
-    right.seasonLabel:SetText("СЕЗОН")
+    right.seasonLabel:SetText(ns.T("СЕЗОН"))
     right.badgeChips = {}
     for i = 1, 3 do
         local c = CreateFrame("Frame", nil, frame)
@@ -2593,9 +2594,9 @@ local function headTip(self)
     local code = tab and tab.bosses[self.boss]
     if not code then return end
     local rows = { { "дпс", "урон, у хилов — исцеление" }, { "парс", "0-100, лучший кил — 100" } }
-    if ns.UNBUFF_ZONE[ns.ModeZone(state.mode) or ""] then tinsert(rows, { ns.Color(RT.unbuffHex, "Красная черта"), "кил в анбафе" }) end
-    tinsert(rows, "Парс — сколько процентов килов этого босса хуже, среди того же спека, сложности и сезона.")
-    ns.TipTable(self, "ANCHOR_TOP", ns.BossName(code), rows, "клик по заголовку — сортировка по парсу")
+    if ns.UNBUFF_ZONE[ns.ModeZone(state.mode) or ""] then tinsert(rows, { ns.Color(RT.unbuffHex, ns.T("Красная черта")), ns.T("кил в анбафе") }) end
+    tinsert(rows, ns.T("Парс — сколько процентов килов этого босса хуже, среди того же спека, сложности и сезона."))
+    ns.TipTable(self, "ANCHOR_TOP", ns.BossName(code), rows, ns.T("клик по заголовку — сортировка по парсу"))
 end
 function RT.fillPicker()
     local p = right.picker
@@ -2603,7 +2604,7 @@ function RT.fillPicker()
     local zone = ns.ModeZone(state.mode) or "icc"
     local z = ns.ZONE[zone]
     p.zone = zone
-    p.title:SetText("Боссы в таблице: " .. z.title)
+    p.title:SetText(ns.T("Боссы в таблице: ") .. z.title)
     local sel = RT.picked(zone)
     local y = 30
     for i, row in ipairs(p.rows) do
@@ -2666,8 +2667,8 @@ function RT.buildPicker()
         p.rows[i] = row
     end
     p.reset = ns.MakeButton(p, 12, nil, 20)
-    ns.FitButton(p.reset, "Сбросить", 18)
-    p.reset.tip = function(self) ns.Tip(self, "ANCHOR_TOP", "Сбросить", "Вернуть боссов по умолчанию") end
+    ns.FitButton(p.reset, ns.T("Сбросить"), 18)
+    p.reset.tip = function(self) ns.Tip(self, "ANCHOR_TOP", ns.T("Сбросить"), ns.T("Вернуть боссов по умолчанию")) end
     p.reset.onClick = function()
         if PlayerRaidsDB.opts and type(PlayerRaidsDB.opts.bossCols) == "table" then PlayerRaidsDB.opts.bossCols[p.zone] = nil end
         state.bossOff = 0
@@ -2718,7 +2719,7 @@ local function buildTable(keep, data)
     end
     local meter = ns.Text(frame, 13)
     meter:Hide()
-    meter:SetText("88.8к")
+    meter:SetText(ns.T("88.8к"))
     VAL_W = ICON_W + 3 + math.floor((meter:GetStringWidth() or 30) + 4)
     meter:SetFont(ns.FONT_BODY, 12)
     meter:SetText("100")
@@ -2754,9 +2755,9 @@ local function buildTable(keep, data)
     end
     local pager = {}
     pager.pick = keep(data(raidOnly(ns.MakeButton(frame, 12, nil, 16))))
-    ns.FitButton(pager.pick, "Боссы", 14)
+    ns.FitButton(pager.pick, ns.T("Боссы"), 14)
     pager.pick.onClick = function(self) RT.togglePicker(self) end
-    pager.pick.tip = function(self) ns.Tip(self, "ANCHOR_TOP", "Боссы в таблице", "Какие столбцы показывать в этом рейде") end
+    pager.pick.tip = function(self) ns.Tip(self, "ANCHOR_TOP", ns.T("Боссы в таблице"), ns.T("Какие столбцы показывать в этом рейде")) end
     for _, it in ipairs({ { "prev", RT.PREV, -1 }, { "next", RT.NEXT, 1 } }) do
         local b = keep(data(raidOnly(CreateFrame("Button", nil, frame))))
         b:SetWidth(18)
@@ -2773,7 +2774,7 @@ local function buildTable(keep, data)
             renderRight(true)
         end)
         b:SetScript("OnEnter", function(self)
-            ns.Tip(self, "ANCHOR_TOP", dir < 0 and "Предыдущие боссы" or "Следующие боссы", "Все отмеченные не влезают в ширину окна")
+            ns.Tip(self, "ANCHOR_TOP", dir < 0 and ns.T("Предыдущие боссы") or ns.T("Следующие боссы"), ns.T("Все отмеченные не влезают в ширину окна"))
         end)
         b:SetScript("OnLeave", function() GameTooltip:Hide() end)
         pager[it[1]] = b
@@ -2812,7 +2813,7 @@ local function buildRight()
     kt.title = ns.Text(kt, 12)
     gold(kt.title)
     kt.title:SetPoint("TOPLEFT", 9, -4)
-    kt.title:SetText("Убито боссов за все сезоны")
+    kt.title:SetText(ns.T("Убито боссов за все сезоны"))
     kt.sep = ns.Rect(kt, 1, 0.82, 0, 0.2, "ARTWORK")
     kt.sep:SetWidth(1)
     kt.sep:SetHeight(16)
@@ -2843,7 +2844,7 @@ local function buildRight()
     right.empty = ns.Text(frame, 13, "CENTER")
     dim(right.empty)
     right.empty:SetWidth(400)
-    right.empty:SetText("Нет рейдов в этой сложности")
+    right.empty:SetText(ns.T("Нет рейдов в этой сложности"))
     right.none = ns.Text(frame, 14, "CENTER")
     dim(right.none)
 end
@@ -2881,7 +2882,7 @@ local function buildOptions()
     optPanel:Hide()
     local title = ns.Text(optPanel, 14, "LEFT", "head")
     title:SetPoint("TOPLEFT", 12, -10)
-    title:SetText("Настройки")
+    title:SetText(ns.T("Настройки"))
     local close = CreateFrame("Button", nil, optPanel, "UIPanelCloseButton")
     close:SetPoint("TOPRIGHT", 2, 2)
     optPanel.checks = {}
@@ -2891,14 +2892,14 @@ local function buildOptions()
             local h = ns.Text(optPanel, 13)
             gold(h)
             h:SetPoint("TOPLEFT", 12, -(y + 6))
-            h:SetText(o.head)
+            h:SetText(ns.T(o.head))
             y = y + 26
         elseif o.note then
             local t = ns.Text(optPanel, 12)
             grey(t)
             t:SetWidth(296)
             t:SetPoint("TOPLEFT", 12, -y)
-            t:SetText(o.note)
+            t:SetText(ns.T(o.note))
             y = y + math.floor((t:GetStringHeight() or 14) + 6)
         else
             local cb = checkRow(optPanel, y, o[2])
@@ -2918,7 +2919,7 @@ local function buildOptions()
     grey(hint)
     hint:SetWidth(296)
     hint:SetPoint("TOPLEFT", 12, -(y + 8))
-    hint:SetText("Какие сезоны и рейды скачивать, выбирается в ManacodeUpdate.")
+    hint:SetText(ns.T("Какие сезоны и рейды скачивать, выбирается в ManacodeUpdate."))
     y = y + 8 + math.floor((hint:GetStringHeight() or 14) + 0.5)
     optPanel:SetHeight(y + 16)
 end
@@ -2929,32 +2930,18 @@ local function showOptions(on)
         return
     end
     if howPanel then howPanel:Hide() end
+    ns.HideAbout()
     for _, cb in ipairs(optPanel.checks) do cb:SetChecked(ns.Opt(cb.key) and 1 or nil) end
     optPanel:Show()
 end
 local function reloadButton(parent)
     local b = ns.MakeButton(parent, 12, nil, 18)
     ns.FitButton(b, "/reload", 18)
-    b.tip = function(self) ns.Tip(self, "ANCHOR_TOP", "Перезагрузить интерфейс", "Перечитать данные после ManacodeUpdate") end
+    b.tip = function(self) ns.Tip(self, "ANCHOR_TOP", ns.T("Перезагрузить интерфейс"), ns.T("Перечитать данные после ManacodeUpdate")) end
     b.onClick = function() ReloadUI() end
     return b
 end
-local function urlBox(parent, name, url)
-    local eb = CreateFrame("EditBox", name, parent, "InputBoxTemplate")
-    eb:SetHeight(20)
-    eb:SetAutoFocus(false)
-    eb:SetFont(ns.FONT_BODY, 12)
-    eb:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
-    eb:SetScript("OnEnterPressed", function(self) self:ClearFocus() end)
-    eb:SetScript("OnEditFocusGained", function(self) self:HighlightText() end)
-    eb:SetScript("OnTextChanged", function(self)
-        if self:GetText() ~= url then
-            self:SetText(url)
-            self:HighlightText()
-        end
-    end)
-    return eb
-end
+local urlBox = ns.UrlBox
 local function buildHow()
     howPanel = CreateFrame("Frame", nil, frame)
     howPanel:SetWidth(440)
@@ -2968,46 +2955,46 @@ local function buildHow()
     howPanel:Hide()
     local title = ns.Text(howPanel, 16, "LEFT", "head")
     title:SetPoint("TOPLEFT", 16, -14)
-    title:SetText("Как обновить данные")
+    title:SetText(ns.T("Как обновить данные"))
     local close = CreateFrame("Button", nil, howPanel, "UIPanelCloseButton")
     close:SetPoint("TOPRIGHT", 2, 2)
     local intro = ns.Text(howPanel, 13)
     intro:SetWidth(408)
     intro:SetPoint("TOPLEFT", 16, -42)
     grey(intro)
-    intro:SetText("Правила аддонов не дают им выходить в интернет и получать данные на лету. Поэтому статистику рейдов нужно скачать готовыми файлами. Выберите один из двух способов.")
+    intro:SetText(ns.T("Правила аддонов не дают им выходить в интернет и получать данные на лету. Поэтому статистику рейдов нужно скачать готовыми файлами. Выберите один из двух способов."))
     local h1 = ns.Text(howPanel, 13, "LEFT", "head")
     h1:SetPoint("TOPLEFT", intro, "BOTTOMLEFT", 0, -12)
-    h1:SetText("1. Через ManacodeUpdate")
+    h1:SetText(ns.T("1. Через ManacodeUpdate"))
     local b1 = ns.Text(howPanel, 13)
     b1:SetWidth(408)
     b1:SetPoint("TOPLEFT", h1, "BOTTOMLEFT", 0, -4)
-    b1:SetText("Скачайте ManacodeUpdate по ссылке и положите в Interface\\AddOns или на рабочий стол. Запустите, выберите PlayerRaidsInfo, отметьте сезоны и рейды и нажмите «Скачать выбранное». В первый раз перезапустите игру полностью, дальше хватит /reload.")
+    b1:SetText(ns.T("Скачайте ManacodeUpdate по ссылке и положите в Interface\\AddOns или на рабочий стол. Запустите, выберите PlayerRaidsInfo, отметьте сезоны и рейды и нажмите «Скачать выбранное». В первый раз перезапустите игру полностью, дальше хватит /reload."))
     howPanel.upd = urlBox(howPanel, "PlayerRaidsUpdaterUrl", ns.UPDATER_URL)
     howPanel.upd:SetPoint("TOPLEFT", b1, "BOTTOMLEFT", 6, -8)
     howPanel.upd:SetWidth(400)
     local h2 = ns.Text(howPanel, 13, "LEFT", "head")
     h2:SetPoint("TOPLEFT", howPanel.upd, "BOTTOMLEFT", -6, -12)
-    h2:SetText("2. Вручную")
+    h2:SetText(ns.T("2. Вручную"))
     local b2 = ns.Text(howPanel, 13)
     b2:SetWidth(408)
     b2:SetPoint("TOPLEFT", h2, "BOTTOMLEFT", 0, -4)
     local cur = ns.CurrentSeason() or 7
-    b2:SetText("Откройте страницу по ссылке. all.zip — всё сразу, если не знаете, что выбрать, качайте его. Остальные архивы — по одному файлу: players.zip нужен всегда, s"
-        .. cur .. ".zip — сезон " .. cur .. ", s" .. cur .. "_icc25h.zip — его ЦЛК 25 гер, и так далее."
-        .. " Распакуйте в Interface\\AddOns с заменой файлов, пароль raids-circle. Затем /reload.")
+    b2:SetText(ns.T("Откройте страницу по ссылке. all.zip — всё сразу, если не знаете, что выбрать, качайте его. Остальные архивы — по одному файлу: players.zip нужен всегда, s")
+        .. cur .. ns.T(".zip — сезон ") .. cur .. ", s" .. cur .. ns.T("_icc25h.zip — его ЦЛК 25 гер, и так далее.")
+        .. ns.T(" Распакуйте в Interface\\AddOns с заменой файлов, пароль raids-circle. Затем /reload."))
     howPanel.url = urlBox(howPanel, "PlayerRaidsUrl", ns.DATA_URL)
     howPanel.url:SetPoint("TOPLEFT", b2, "BOTTOMLEFT", 6, -8)
     howPanel.url:SetWidth(400)
     local hint = ns.Text(howPanel, 12)
     dim(hint)
     hint:SetPoint("TOPLEFT", howPanel.url, "BOTTOMLEFT", -6, -4)
-    hint:SetText("Ссылку в игре не открыть: щёлкните по полю, Ctrl+C — скопировать")
+    hint:SetText(ns.T("Ссылку в игре не открыть: щёлкните по полю, Ctrl+C — скопировать"))
     local textH = 0
     for _, fs in ipairs({ intro, h1, b1, h2, b2, hint }) do textH = textH + (fs:GetStringHeight() or 14) end
     howPanel:SetHeight(math.floor(42 + textH + 12 + 4 + 12 + 4 + 8 + 20 + 4 + 16 + 22 + 14 + 28 + 0.5))
     local ok = ns.MakeButton(howPanel, 13, 96, 22)
-    ok.text:SetText("Закрыть")
+    ok.text:SetText(ns.T("Закрыть"))
     ok:SetPoint("BOTTOMLEFT", howPanel, "BOTTOM", 5, 12)
     local reload = reloadButton(howPanel)
     reload:SetHeight(22)
@@ -3021,6 +3008,7 @@ local function toggleHow()
         return
     end
     if optPanel then optPanel:Hide() end
+    ns.HideAbout()
     howPanel:Show()
     howPanel.upd:SetText(ns.UPDATER_URL)
     howPanel.url:SetText(ns.DATA_URL)
@@ -3036,36 +3024,52 @@ end
 local function saveSize()
     PlayerRaidsDB.size = { w = math.floor(frame:GetWidth() + 0.5), h = math.floor(frame:GetHeight() + 0.5) }
 end
-local function buildGrip()
-    local g = CreateFrame("Button", nil, frame)
-    g:SetWidth(16)
-    g:SetHeight(16)
-    g:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -4, 4)
-    g:SetFrameLevel(frame:GetFrameLevel() + 25)
-    g:SetNormalTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
-    g:SetPushedTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down")
-    g:SetHighlightTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight")
-    g:SetScript("OnMouseDown", function(self, button)
-        if button ~= "LeftButton" then return end
-        self.sizing = true
-        frame:StartSizing("BOTTOMRIGHT")
-    end)
-    g:SetScript("OnMouseUp", function(self)
-        if not self.sizing then return end
-        self.sizing = nil
-        frame:StopMovingOrSizing()
-        saveSize()
-        relayout()
-    end)
-    g:SetScript("OnHide", function(self)
-        if self.sizing then self:GetScript("OnMouseUp")(self) end
-    end)
-    return g
-end
 local function screenMax()
     local w = UIParent:GetWidth() or 1600
     local h = UIParent:GetHeight() or 1000
     return math.max(w, MIN_W), math.max(h, MIN_H)
+end
+local function buildGrip()
+    local g = CreateFrame("Button", nil, frame)
+    g:SetWidth(GRIP.size)
+    g:SetHeight(GRIP.size)
+    g:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -GRIP.inset, GRIP.inset)
+    g:SetFrameLevel(frame:GetFrameLevel() + 25)
+    local tex = g:CreateTexture(nil, "ARTWORK")
+    tex:SetAllPoints(g)
+    tex:SetTexture(GRIP.tex)
+    tex:SetVertexColor(GRIP.gold[1], GRIP.gold[2], GRIP.gold[3])
+    local hi = g:CreateTexture(nil, "HIGHLIGHT")
+    hi:SetAllPoints(g)
+    hi:SetTexture(GRIP.tex)
+    hi:SetBlendMode("ADD")
+    hi:SetVertexColor(1, 0.93, 0.62, 0.35)
+    local sizer = ns.Sizer.New(frame, {
+        limits = function()
+            local w, h = screenMax()
+            return MIN_W, MIN_H, w, h
+        end,
+        apply = function(w, h)
+            frame:SetWidth(w)
+            frame:SetHeight(h)
+            saveSize()
+            relayout()
+        end,
+    })
+    g:SetScript("OnMouseDown", function(_, button)
+        if button == "LeftButton" then sizer:Start() end
+    end)
+    g:SetScript("OnMouseUp", function() sizer:Finish() end)
+    g:SetScript("OnEnter", function(self)
+        tex:SetVertexColor(1, 0.93, 0.62)
+        ns.Tip(self, "ANCHOR_TOP", ns.T("Размер окна"), ns.T("Тяните уголок: по экрану едет рамка, окно меняется при отпускании"))
+    end)
+    g:SetScript("OnLeave", function()
+        tex:SetVertexColor(GRIP.gold[1], GRIP.gold[2], GRIP.gold[3])
+        GameTooltip:Hide()
+    end)
+    g:SetScript("OnHide", function() sizer:Cancel() end)
+    return g
 end
 local function buildStatus()
     local statusLine = line(frame, 0.12)
@@ -3076,7 +3080,7 @@ local function buildStatus()
     status:SetHeight(14)
     status:SetPoint("BOTTOMLEFT", 14, 9)
     howBtn = ns.MakeButton(frame, 12, nil, 18)
-    ns.FitButton(howBtn, "Как обновить?", 18)
+    ns.FitButton(howBtn, ns.T("Как обновить?"), 18)
     howBtn:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -24, 6)
     howBtn.onClick = toggleHow
     local reload = reloadButton(frame)
@@ -3098,18 +3102,18 @@ local function buildStatus()
         right.syncFake()
     end
     local show = ns.MakeButton(frame, 12, nil, 18)
-    ns.FitButton(show, "Тестовый рейд", 18)
+    ns.FitButton(show, ns.T("Тестовый рейд"), 18)
     show:SetPoint("RIGHT", reload, "LEFT", -12, 0)
     show.onClick = function() fake() end
     show.tip = function(self)
-        ns.Tip(self, "ANCHOR_TOP", "Тестовый рейд", "Собирает 25 человек из гильдии, кто ходил в выбранную сложность, и открывает «Мой рейд». Не в гильдии — случайных из базы.")
+        ns.Tip(self, "ANCHOR_TOP", ns.T("Тестовый рейд"), ns.T("Собирает 25 человек из гильдии, кто ходил в выбранную сложность, и открывает «Мой рейд». Не в гильдии — случайных из базы."))
     end
     local off = ns.MakeButton(frame, 12, nil, 18)
-    ns.FitButton(off, "Убрать тестовый", 18)
+    ns.FitButton(off, ns.T("Убрать тестовый"), 18)
     off:SetPoint("RIGHT", reload, "LEFT", -12, 0)
     off.onClick = function() fake("off") end
     local again = ns.MakeButton(frame, 12, nil, 18)
-    ns.FitButton(again, "Пересобрать", 18)
+    ns.FitButton(again, ns.T("Пересобрать"), 18)
     again:SetPoint("RIGHT", off, "LEFT", -4, 0)
     again.onClick = function() fake() end
     again.tip = show.tip
@@ -3125,26 +3129,23 @@ local function buildStatus()
     local mine = "v" .. (ns.LinkVersion and ns.LinkVersion() or "?")
     local ver = ns.Text(frame, 12)
     dim(ver)
-    local links = {}
-    for _, it in ipairs({
-        { "Откуда данные", false, "Рейды, парсы и рейтинг спека — из логов WoW Circle." },
-        { "Релизы", ns.RELEASES_URL, "Все версии аддона для скачивания" },
-        { "Discord", ns.DISCORD_URL, "Сервер Manacode: вопросы, новости и новые версии" },
-    }) do
-        local b = ns.MakeButton(frame, 12, nil, 18)
-        ns.FitButton(b, it[1], 14)
-        if it[2] then b.onClick = function(self) ns.ShowCopy(self, it[2], 320, true) end end
-        b.tip = function(self) ns.Tip(self, "ANCHOR_TOP", it[1], it[3]) end
-        tinsert(links, b)
+    local about = ns.MakeButton(frame, 12, nil, 18)
+    ns.FitButton(about, ns.T("Об аддоне"), 14)
+    about.onClick = function()
+        if howPanel then howPanel:Hide() end
+        if optPanel then optPanel:Hide() end
+        ns.ToggleAbout(frame)
     end
+    about.tip = function(self) ns.Tip(self, "ANCHOR_TOP", ns.T("Об аддоне"), ns.T("Откуда данные, ссылки, другие аддоны ManaCode")) end
+    local links = { about }
     local newText = ns.Text(frame, 12)
     gold(newText)
     newText:Hide()
     local get = ns.MakeButton(frame, 12, nil, 18)
-    ns.FitButton(get, "Скачать", 16)
+    ns.FitButton(get, ns.T("Скачать"), 16)
     get.onClick = function(self) ns.ShowCopy(self, ns.RELEASE_URL, 400, true) end
     get.tip = function(self)
-        ns.Tip(self, "ANCHOR_TOP", "Новая версия аддона", "Запустите ManacodeUpdate и нажмите «Обновить» у PlayerRaidsInfo, потом перезапустите игру.", "Кнопка покажет ссылку на релиз, если хотите скачать сами.")
+        ns.Tip(self, "ANCHOR_TOP", ns.T("Новая версия аддона"), ns.T("Запустите ManacodeUpdate и нажмите «Обновить» у PlayerRaidsInfo, потом перезапустите игру."), ns.T("Кнопка покажет ссылку на релиз, если хотите скачать сами."))
     end
     get:Hide()
     local function rightEdge()
@@ -3166,12 +3167,12 @@ local function buildStatus()
         local v = ns.NewestVersion and ns.NewestVersion()
         local newW = 0
         if v then
-            newText:SetText("Вышла версия " .. v)
+            newText:SetText(ns.T("Вышла версия ") .. v)
             newW = math.floor((newText:GetStringWidth() or 0) + 6 + get:GetWidth() + 14)
         end
         local linksW = 0
         for _, b in ipairs(links) do linksW = linksW + 6 + b:GetWidth() end
-        local full = mine .. (y4 and (" от " .. d2 .. "." .. m2 .. "." .. y4) or "")
+        local full = mine .. (y4 and (ns.ENGLISH and (" on " .. m2 .. "/" .. d2 .. "/" .. y4) or (ns.T(" от ") .. d2 .. "." .. m2 .. "." .. y4)) or "")
         local plans = { { full, true }, { mine, true }, { full, false }, { mine, false } }
         local text, withLinks = mine, false
         for _, plan in ipairs(plans) do
@@ -3281,7 +3282,7 @@ local function build()
     frame:Hide()
     local title = ns.Text(frame, 16, "LEFT", "head")
     title:SetPoint("TOPLEFT", 14, -11)
-    title:SetText("Рейды игроков")
+    title:SetText(ns.T("Рейды игроков"))
     local titleLine = line(frame, 0.15)
     titleLine:SetPoint("TOPLEFT", 6, -34)
     titleLine:SetPoint("TOPRIGHT", -6, -34)
@@ -3378,9 +3379,9 @@ local function buildIcon()
     icon:SetScript("OnClick", function() ns.ToggleBrowser() end)
     icon:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-        GameTooltip:SetText("Рейды игроков")
-        GameTooltip:AddLine("Клик — окно, перетаскивание — переместить.", 1, 1, 1)
-        GameTooltip:AddLine("Alt + наведение на игрока — карточка.", 1, 1, 1)
+        GameTooltip:SetText(ns.T("Рейды игроков"))
+        GameTooltip:AddLine(ns.T("Клик — окно, перетаскивание — переместить."), 1, 1, 1)
+        GameTooltip:AddLine(ns.T("Alt + наведение на игрока — карточка."), 1, 1, 1)
         GameTooltip:Show()
     end)
     icon:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -3400,15 +3401,15 @@ SlashCmdList["PLAYERRAIDS"] = function(msg)
     elseif noteName then
         local id = ns.FindId(noteName)
         if not id then
-            ns.Print("не знаю id для «" .. noteName .. "»: персонажа нет в выгрузке и он не встречался в игре")
+            ns.Print(ns.T("не знаю id для «") .. noteName .. ns.T("»: персонажа нет в выгрузке и он не встречался в игре"))
             return
         end
         ns.SetNote(id, noteText)
         local who = ns.NameOf(id) or noteName
         if ns.Note(id) then
-            ns.Print("заметка для " .. who .. " (id " .. id .. "): " .. ns.Note(id))
+            ns.Print(ns.T("заметка для ") .. who .. " (id " .. id .. "): " .. ns.Note(id))
         else
-            ns.Print("заметка для " .. who .. " удалена")
+            ns.Print(ns.T("заметка для ") .. who .. ns.T(" удалена"))
         end
     elseif q ~= "" then
         ns.OpenBrowser(q)

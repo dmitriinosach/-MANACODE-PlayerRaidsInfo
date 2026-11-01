@@ -122,7 +122,7 @@ local function build()
     card.hint = ns.Text(card, 13, "RIGHT")
     card.hint:SetTextColor(1, 0.82, 0)
     card.hint:SetPoint("RIGHT", card.linkArrow, "LEFT", -2, 0)
-    card.hint:SetText("Открыть в окне /raids")
+    card.hint:SetText(ns.T("Открыть в окне /raids"))
     card.open = card:CreateTexture(nil, "OVERLAY")
     card.open:SetWidth(20)
     card.open:SetHeight(20)
@@ -180,7 +180,7 @@ local function build()
     card.name = ns.Text(card, 15, "LEFT", "head")
     card.hero = ns.Text(card, 12)
     card.hero:SetTextColor(1, 0.82, 0)
-    card.hero:SetText("ГН")
+    card.hero:SetText(ns.T("ГН"))
     card.heroIcon = card:CreateTexture(nil, "OVERLAY")
     card.heroIcon:SetWidth(13)
     card.heroIcon:SetHeight(13)
@@ -191,6 +191,17 @@ local function build()
     card.heroIcon:Hide()
     card.season = ns.Text(card, 11, "RIGHT")
     card.season:SetTextColor(0.55, 0.57, 0.6)
+    card.invite = ns.MakeButton(card, 12, nil, 18)
+    ns.FitButton(card.invite, ns.T("Пригласить"), 16)
+    card.invite:SetPoint("TOPRIGHT", card, "TOPRIGHT", -PAD, -(PAD + 2))
+    card.invite:SetFrameLevel(card:GetFrameLevel() + 5)
+    card.invite.onClick = function()
+        if shownInfo and shownInfo.name then InviteUnit(shownInfo.name) end
+    end
+    card.invite.tip = function(self)
+        ns.Tip(self, "ANCHOR_TOP", ns.T("Пригласить в группу"), shownInfo and shownInfo.name)
+    end
+    card.invite:Hide()
     card.guild = ns.Text(card, 12)
     card.guild:SetTextColor(0.25, 1, 0.25)
     card.sub = withIcon(wide(13, 0.92, 0.92, 0.92, CW - INDENT), 15, 13, CW - INDENT)
@@ -321,11 +332,11 @@ local function fillRow(row, raid)
     fillCell(row[6], li and raid.cells[li] or nil)
 end
 local function renderHead(y, raids)
-    card.heads[1]:SetText("дата")
-    card.heads[2]:SetText("режим")
-    card.heads[3]:SetText("вайпы")
-    card.heads[4]:SetText("боссов")
-    card.heads[5]:SetText("лучший парс")
+    card.heads[1]:SetText(ns.T("дата"))
+    card.heads[2]:SetText(ns.T("режим"))
+    card.heads[3]:SetText(ns.T("вайпы"))
+    card.heads[4]:SetText(ns.T("боссов"))
+    card.heads[5]:SetText(ns.T("лучший парс"))
     local lasts, seen = {}, {}
     for _, raid in ipairs(raids) do
         local z = ns.ZONE[ns.ModeZone(raid.mode) or ""]
@@ -351,18 +362,33 @@ local function renderHead(y, raids)
     card.headLine:Show()
     return y + 18
 end
+local function canInvite(name)
+    if not name or name == "?" or name == UnitName("player") then return false end
+    return not (UnitInParty(name) or UnitInRaid(name))
+end
 local function renderName(id, rec, shown, class, s)
     local y = PAD
     if ns.SetClassTexture(card.icon, class) then card.icon:Show() else card.icon:Hide() end
+    local invite = card.clickable and canInvite(shown)
+    if invite then card.invite:Show() else card.invite:Hide() end
+    card.season:SetText(s and s.season and (ns.T("сезон ") .. s.season) or "")
+    card.season:ClearAllPoints()
+    if invite then
+        card.season:SetPoint("RIGHT", card.invite, "LEFT", -6, 0)
+    else
+        card.season:SetPoint("TOPRIGHT", card, "TOPRIGHT", -PAD, -(y + 4))
+    end
+    local hero = ns.HeroDate(rec)
+    local room = CW - ICON - 6 - (card.season:GetStringWidth() or 0) - 12
+    if invite then room = room - card.invite:GetWidth() - 6 end
+    if hero then room = room - 13 - 3 - (card.hero:GetStringWidth() or 0) - 6 end
     local title = ns.TitleOf(id)
     card.name:SetText(title and (shown .. "|cffe8e8e8, " .. title .. "|r") or shown)
+    if (card.name:GetStringWidth() or 0) > room then ns.FitText(card.name, shown, room) end
     card.name:SetTextColor(ns.ClassColor(class))
     card.name:ClearAllPoints()
     card.name:SetPoint("LEFT", card.icon, "RIGHT", 6, 0)
-    card.season:SetText(s and s.season and ("сезон " .. s.season) or "")
-    card.season:ClearAllPoints()
-    card.season:SetPoint("TOPRIGHT", card, "TOPRIGHT", -PAD, -(y + 4))
-    if ns.HeroDate(rec) then
+    if hero then
         card.heroIcon:Show()
         card.hero:Show()
     end
@@ -397,10 +423,10 @@ end
 local function renderWas(info, id, rec, shown, y)
     local text
     if info.viaOld and rec then
-        text = "найден по прошлому имени, на сайте " .. rec.name
+        text = ns.T("найден по прошлому имени, на сайте ") .. rec.name
     else
         local others = ns.OtherNames(rec, shown)
-        if #others > 0 then text = "раньше: " .. ns.NamesShort(others, 48) end
+        if #others > 0 then text = ns.T("раньше: ") .. ns.NamesShort(others, 48) end
     end
     if not text then return y end
     card.was:SetText(text)
@@ -438,7 +464,7 @@ local function renderLiveKills(live, y)
         if i > LIVE_ROWS then break end
         local fs = card.kills[i]
         setIcon(fs, ns.BossIcon(b.boss))
-        fs:SetText(ns.BossName(b.boss) .. "   " .. countText(b.h, "гер") .. "   " .. countText(b.n, "об"))
+        fs:SetText(ns.BossName(b.boss) .. "   " .. countText(b.h, ns.ENGLISH and "H" or "гер") .. "   " .. countText(b.n, ns.ENGLISH and "N" or "об"))
         place(fs, 0, ly)
         ly = ly + 18
     end
@@ -450,7 +476,7 @@ local function renderLiveKills(live, y)
         if a.done then
             fs:SetText(ns.Color("white", a.title) .. (a.date and ns.Color("grey", "  " .. a.date) or ""))
         else
-            fs:SetText(ns.Color("none", a.title .. " — нет"))
+            fs:SetText(ns.Color("none", a.title .. ns.T(" — нет")))
         end
         ay = placeLine(fs, ay, ACH_X, 3)
     end
@@ -461,10 +487,10 @@ local function renderNotInBase(name, y, whoState)
     local live, state = ns.LiveKills and ns.LiveKills(name)
     if live then
         if live.any then
-            card.msg:SetText(ns.Color("white", "Записей рейдов нет, но ходил"))
-            card.why:SetText("Статистика из игры. Его рейды — до начала сбора рейд-логов (2023).")
+            card.msg:SetText(ns.Color("white", ns.T("Записей рейдов нет, но ходил")))
+            card.why:SetText(ns.T("Статистика из игры. Его рейды — до начала сбора рейд-логов (2023)."))
         else
-            card.msg:SetText("Не ходил в ЦЛК 25 и РС 25: по статистике из игры ни одного кила")
+            card.msg:SetText(ns.T("Не ходил в ЦЛК 25 и РС 25: по статистике из игры ни одного кила"))
             card.why:SetText(nil)
         end
         y = placeLine(card.msg, y, 0, 0)
@@ -479,11 +505,11 @@ local function renderNotInBase(name, y, whoState)
     local lines = {}
     if long then tinsert(lines, long) end
     if state == "wait" then
-        tinsert(lines, "Смотрю статистику персонажа...")
+        tinsert(lines, ns.T("Смотрю статистику персонажа..."))
     elseif state == "far" then
-        tinsert(lines, "Когда персонаж рядом, покажу его ачивки и килы боссов.")
+        tinsert(lines, ns.T("Когда персонаж рядом, покажу его ачивки и килы боссов."))
     end
-    if whoState == "wait" then tinsert(lines, "Узнаю гильдию и класс через /who...") end
+    if whoState == "wait" then tinsert(lines, ns.T("Узнаю гильдию и класс через /who...")) end
     if #lines == 0 then return y end
     card.why:SetText(table.concat(lines, "\n"))
     return placeLine(card.why, y + 3, 0, 0)
@@ -500,11 +526,11 @@ local function renderMissing(rec, name, missing, y, whoState, curWhy)
     y = placeLine(card.msg, y, 0, 0)
     local hist = ns.HistLine(rec)
     if hist then
-        card.hist:SetText("за всё время: " .. hist)
+        card.hist:SetText(ns.T("за всё время: ") .. hist)
         y = placeLine(card.hist, y + 2, 0, 0)
     end
     if missing then
-        card.why:SetText("Прошлые сезоны не скачаны — отметьте их в ManacodeUpdate")
+        card.why:SetText(ns.T("Прошлые сезоны не скачаны — отметьте их в ManacodeUpdate"))
         y = placeLine(card.why, y + 3, 0, 0)
     end
     local live = ns.LiveKills and ns.LiveKills(name)
@@ -513,8 +539,13 @@ local function renderMissing(rec, name, missing, y, whoState, curWhy)
 end
 local function renderWarn(season, y, curWhy)
     local cur = tostring(ns.CurrentSeason() or "?")
-    local why = curWhy == "notdownloaded" and ("сезон " .. cur .. " не скачан") or ("в сезоне " .. cur .. " рейдов не было")
-    card.warn:SetText("|cffffd040!|r  Прошлый сезон " .. season .. ": " .. why)
+    local why
+    if ns.ENGLISH then
+        why = curWhy == "notdownloaded" and ("season " .. cur .. " is not downloaded") or ("no raids in season " .. cur)
+    else
+        why = curWhy == "notdownloaded" and ("сезон " .. cur .. " не скачан") or ("в сезоне " .. cur .. " рейдов не было")
+    end
+    card.warn:SetText(ns.T("|cffffd040!|r  Прошлый сезон ") .. season .. ": " .. why)
     place(card.warn, 4, y + 3)
     local h = (card.warn:GetStringHeight() or 13) + 6
     card.warnBg:ClearAllPoints()
@@ -579,13 +610,13 @@ end
 local function renderStat(s, y)
     local st = s.stat
     if st and st.top then
-        local lbl = "Место в спеке"
+        local lbl = ns.T("Место в спеке")
         if st.spec and st.spec ~= s.spec then lbl = lbl .. " " .. (ns.SpecRu(st.spec) or st.spec) end
         y = statRow(1, lbl, ns.Color("white", ns.StatTop(st)), y)
     end
     if st and st.better then
         local v = ns.StatBracket(st)
-        if st.avg then v = v .. ", средний дпс " .. ns.Thousands(st.avg) end
+        if st.avg then v = v .. (ns.ENGLISH and ", average DPS " or ", средний дпс ") .. ns.Thousands(st.avg) end
         y = statRow(2, ns.StatIlvl(st), ns.Color("white", v), y)
     end
     local marks = {}
@@ -615,7 +646,7 @@ local function renderRaids(rec, y)
         y = y + ROW_H
     end
     if more > 0 then
-        card.foot:SetText("+ ещё " .. more .. " " .. ns.Plural(more, "рейд", "рейда", "рейдов") .. " — в окне /raids")
+        card.foot:SetText(ns.T("+ ещё ") .. more .. " " .. ns.Plural(more, ns.T("рейд"), ns.T("рейда"), ns.T("рейдов")) .. ns.T(" — в окне /raids"))
         y = placeLine(card.foot, y + 4, 0, 0)
     end
     return y
@@ -647,7 +678,7 @@ local function render(info)
     paintAmbient(shown, class, s, y + 2)
     local note = ns.Note(id)
     if note then
-        card.note:SetText("Заметка: " .. note)
+        card.note:SetText(ns.T("Заметка: ") .. note)
         y = placeLine(card.note, y + 3, 0, 1)
     end
     local gmRows = ns.GMRows and ns.GMRows(id)
@@ -656,7 +687,7 @@ local function render(info)
         for _, r in ipairs(gmRows) do
             if not ns.GM_LISTS[r.section] then n = n + 1 end
         end
-        card.gm:SetText("ГМ: " .. (n > 0 and (n .. " " .. ns.Plural(n, "запись", "записи", "записей") .. " — ") or "") .. "в окне /raids, кнопка «Вещи»")
+        card.gm:SetText(ns.T("ГМ: ") .. (n > 0 and (n .. " " .. ns.Plural(n, ns.T("запись"), ns.T("записи"), ns.T("записей")) .. " — ") or "") .. ns.T("в окне /raids, кнопка «Вещи»"))
         y = placeLine(card.gm, y + 3, 0, 1)
     end
     if ns.DataProblem() or not s then
@@ -674,7 +705,7 @@ local function render(info)
     y = renderChips(s, y)
     local hist = ns.HistLine(rec)
     if hist then
-        card.hist:SetText("за всё время: " .. hist)
+        card.hist:SetText(ns.T("за всё время: ") .. hist)
         y = placeLine(card.hist, y, 0, 0)
     end
     y = renderRaids(rec, y)

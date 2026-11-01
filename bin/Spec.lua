@@ -157,6 +157,7 @@ local function readKills()
     return out
 end
 local function countLine(b)
+    if ns.ENGLISH then return ns.BossName(b.boss) .. ": H " .. b.h .. ", N " .. b.n end
     return ns.BossName(b.boss) .. ": гер " .. b.h .. ", об " .. b.n
 end
 function ns.LiveKillsLines(live, rs)
@@ -169,7 +170,7 @@ function ns.LiveKillsLines(live, rs)
             if a.done then
                 tinsert(out, a.title .. (a.date and (" — " .. a.date) or ""))
             else
-                tinsert(out, ns.Color("none", a.title .. " — нет"))
+                tinsert(out, ns.Color("none", a.title .. ns.T(" — нет")))
             end
         end
     end

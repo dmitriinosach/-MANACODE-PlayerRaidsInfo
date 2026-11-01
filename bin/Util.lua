@@ -24,6 +24,7 @@ function ns.FirstChar(s)
     return s and string.match(s, "^[%z\1-\127\194-\244][\128-\191]*") or ""
 end
 function ns.Plural(n, one, few, many)
+    if ns.ENGLISH then return ns.T(n == 1 and one or many) end
     local m100, m10 = n % 100, n % 10
     if m100 >= 11 and m100 <= 14 then return many end
     if m10 == 1 then return one end
@@ -32,7 +33,7 @@ function ns.Plural(n, one, few, many)
 end
 function ns.Compact(n)
     if not n then return "" end
-    if n >= 1000 then return string.format("%.1fк", n / 1000) end
+    if n >= 1000 then return string.format(ns.ENGLISH and "%.1fk" or "%.1fк", n / 1000) end
     return tostring(n)
 end
 local PARSE_COLORS = {
@@ -75,7 +76,7 @@ local SPEC_RU = {
 function ns.SpecRu(spec)
     if not spec or spec == "" then return nil end
     local key = string.gsub(ns.Lower(spec), "[%s_%-]", "")
-    return SPEC_RU[key] or spec
+    return ns.T(SPEC_RU[key]) or spec
 end
 local SPEC_SPELL = {
     WARRIOR = { arms = 12294, fury = 23881, protection = 23922 },
@@ -126,7 +127,7 @@ local CLASS_RU = {
     WARLOCK = "Чернокнижник", DRUID = "Друид",
 }
 function ns.ClassRu(classFile)
-    return classFile and CLASS_RU[classFile] or nil
+    return classFile and ns.T(CLASS_RU[classFile]) or nil
 end
 function ns.ClassColor(classFile)
     local pal = _G.CUSTOM_CLASS_COLORS or _G.RAID_CLASS_COLORS
@@ -146,6 +147,9 @@ ns.ZONES = {
     { code = "rs", title = "РС", last = "halion", bosses = { "halion" } },
     { code = "toc", title = "ИВК", last = "anubarak", bosses = { "northrendbeasts", "jaraxxus", "champions", "valkyr", "anubarak" } },
 }
+if ns.ENGLISH then
+    ns.ZONES[1].title, ns.ZONES[2].title, ns.ZONES[3].title = "ICC", "RS", "ToC"
+end
 ns.ZONE = {}
 for _, z in ipairs(ns.ZONES) do ns.ZONE[z.code] = z end
 ns.MODES = { "icc25h", "icc25n", "icc10h", "icc10n", "rs25h", "rs25n", "rs10h", "rs10n", "toc25h", "toc25n", "toc10h", "toc10n" }
@@ -154,11 +158,14 @@ for i, mode in ipairs(ns.MODES) do
     local zone, size, diff = string.match(mode, "^(%a+)(%d+)(%a)$")
     local heroic = diff == "h"
     local z = ns.ZONE[zone]
+    local difficulty = ns.ENGLISH and (heroic and " H" or " N") or (heroic and " гер" or " об")
+    local shortDifficulty = ns.ENGLISH and (heroic and " H" or " N") or (heroic and " г" or " о")
+    local cellDifficulty = ns.ENGLISH and (heroic and "H" or "N") or (heroic and " гер" or " об")
     ns.MODE[mode] = {
         index = i, zone = zone, size = tonumber(size), heroic = heroic,
-        full = z.title .. " " .. size .. (heroic and " гер" or " об"),
-        short = z.title .. " " .. size .. (heroic and " г" or " о"),
-        cell = size .. (heroic and " гер" or " об"),
+        full = z.title .. " " .. size .. difficulty,
+        short = z.title .. " " .. size .. shortDifficulty,
+        cell = size .. cellDifficulty,
     }
 end
 ns.UNBUFF_ZONE = { icc = true }
@@ -201,10 +208,10 @@ do
     end
 end
 function ns.BossName(code)
-    return ns.BOSS[code] or code or ""
+    return ns.T(ns.BOSS[code]) or code or ""
 end
 function ns.BossShort(code)
-    return ns.BOSS_SHORT[code] or ns.BOSS[code] or code or ""
+    return ns.T(ns.BOSS_SHORT[code] or ns.BOSS[code]) or code or ""
 end
 function ns.Thousands(n)
     local s = tostring(floor((n or 0) + 0.5))
@@ -219,19 +226,19 @@ function ns.Decimal(x)
     local s = string.format("%.2f", x)
     s = string.gsub(s, "0+$", "")
     s = string.gsub(s, "%.$", "")
-    return (string.gsub(s, "%.", ","))
+    return ns.ENGLISH and s or (string.gsub(s, "%.", ","))
 end
 function ns.DayMonth(d)
     if not d or d == "" then return "" end
     local y, m, dd = string.match(d, "^(%d%d)(%d%d)(%d%d)$")
     if not y then return d end
-    return dd .. "." .. m
+    return ns.ENGLISH and (m .. "/" .. dd) or (dd .. "." .. m)
 end
 function ns.DayMonthYear(d)
     local y = d and string.match(d, "^(%d%d)%d%d%d%d$")
     local baked = ns.Meta and ns.Meta().baked
     local by = type(baked) == "string" and string.match(baked, "^%d%d(%d%d)")
-    if y and by and y ~= by then return ns.DayMonth(d) .. "." .. y end
+    if y and by and y ~= by then return ns.DayMonth(d) .. (ns.ENGLISH and "/" or ".") .. y end
     return ns.DayMonth(d)
 end
 function ns.BakedText()
@@ -239,7 +246,7 @@ function ns.BakedText()
     if type(baked) ~= "string" then return "" end
     local y, m, d, hh, mm = string.match(baked, "^(%d+)%-(%d+)%-(%d+)T(%d+):(%d+)")
     if not y then return baked end
-    return d .. "." .. m .. " " .. hh .. ":" .. mm
+    return (ns.ENGLISH and (m .. "/" .. d) or (d .. "." .. m)) .. " " .. hh .. ":" .. mm
 end
 ns.CLASS_TEX = "Interface\\Glues\\CharacterCreate\\UI-CharacterCreate-Classes"
 ns.ROLE_TEX = "Interface\\LFGFrame\\UI-LFG-ICON-PORTRAITROLES"
@@ -335,7 +342,7 @@ function ns.StylePanel(f)
     g:SetGradientAlpha("VERTICAL", 0.067, 0.059, 0.047, 0.97, 0.114, 0.098, 0.078, 0.97)
 end
 function ns.Print(msg)
-    DEFAULT_CHAT_FRAME:AddMessage("|cffffd100Рейды игроков:|r " .. msg)
+    DEFAULT_CHAT_FRAME:AddMessage("|cff3399ff[MANACODE]|r " .. msg)
 end
 ns.OPT_DEFAULTS = { chat = true, world = true, frames = false, guild = true, altOpen = true, follow = true, updates = true }
 ns.ARROW = " |cff999999>|r "
@@ -367,7 +374,7 @@ function ns.Utf8Len(s)
 end
 function ns.DayText(day)
     if not day then return "" end
-    return date("%d.%m.%y", day * 86400 + 43200)
+    return date(ns.ENGLISH and "%m/%d/%y" or "%d.%m.%y", day * 86400 + 43200)
 end
 function ns.Note(id)
     local n = id and PlayerRaidsNotes and PlayerRaidsNotes[id]
@@ -396,7 +403,7 @@ end
 function ns.DayMonthYearFull(d)
     local y, m, dd = string.match(d or "", "^(%d%d)(%d%d)(%d%d)$")
     if not y then return d or "" end
-    return dd .. "." .. m .. "." .. y
+    return ns.ENGLISH and (m .. "/" .. dd .. "/" .. y) or (dd .. "." .. m .. "." .. y)
 end
 ns.ZONE_ICON = {
     icc = "Interface\\LFGFrame\\LFGIcon-IcecrownCitadel",
@@ -782,7 +789,7 @@ local function buildCopy()
     end)
     pcall(eb.SetScript, eb, "OnKeyDown", function(self, key)
         if key == "C" and IsControlKeyDown() then
-            copy.hint:SetText(ns.Color("green", "Скопировано"))
+            copy.hint:SetText(ns.Color("green", ns.T("Скопировано")))
             copy.hideAt = GetTime() + 0.8
         end
     end)
@@ -816,7 +823,7 @@ function ns.ShowCopy(anchor, text, width, up)
         copy:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", -8, -3)
     end
     copy:Show()
-    copy.hint:SetText("Выделено, нажмите Ctrl+C")
+    copy.hint:SetText(ns.T("Выделено, нажмите Ctrl+C"))
     copy.value = text
     copy.box:SetText(text)
     copy.box:SetFocus()
@@ -824,6 +831,22 @@ function ns.ShowCopy(anchor, text, width, up)
 end
 function ns.HideCopy()
     if copy then copy:Hide() end
+end
+function ns.UrlBox(parent, name, url)
+    local eb = CreateFrame("EditBox", name, parent, "InputBoxTemplate")
+    eb:SetHeight(20)
+    eb:SetAutoFocus(false)
+    eb:SetFont(ns.FONT_BODY, 12)
+    eb:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
+    eb:SetScript("OnEnterPressed", function(self) self:ClearFocus() end)
+    eb:SetScript("OnEditFocusGained", function(self) self:HighlightText() end)
+    eb:SetScript("OnTextChanged", function(self)
+        if self:GetText() ~= url then
+            self:SetText(url)
+            self:HighlightText()
+        end
+    end)
+    return eb
 end
 local blur = CreateFrame("Frame")
 blur:Hide()

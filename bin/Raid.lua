@@ -137,7 +137,7 @@ local function buildList()
 end
 local function valueText(v, season)
     local out = ns.Color("white", ns.Compact(v))
-    if season then out = out .. ns.Color("dim", " с" .. season) end
+    if season then out = out .. ns.Color("dim", (ns.ENGLISH and " season " or " с") .. season) end
     return out
 end
 local function updateRows()
@@ -150,7 +150,7 @@ local function updateRows()
             row.headIcon:SetTexture(ns.ROLE_TEX)
             row.headIcon:SetTexCoord(c[1] / 64, c[2] / 64, c[3] / 64, c[4] / 64)
             row.headIcon:Show()
-            row.head:SetText(ROLE_HEAD[e.head] .. ns.Color("dim", "  " .. e.count))
+            row.head:SetText(ns.T(ROLE_HEAD[e.head]) .. ns.Color("dim", "  " .. e.count))
             row.head:Show()
             row.name:Hide(); row.avg:Hide(); row.min:Hide()
             row.id = nil
@@ -172,7 +172,7 @@ local function updateRows()
                 if alt then
                     row.avg:SetText(ns.Color("dim", ns.Compact(alt.avg) .. " " .. label))
                 else
-                    row.avg:SetText(ns.Color("grey", "нет данных"))
+                    row.avg:SetText(ns.Color("grey", ns.T("нет данных")))
                 end
                 row.min:SetText("")
             end
@@ -243,19 +243,19 @@ local function renderSummary()
     local r = compute()
     local boss = pick.boss
     local L = sum.lines
-    L[1]:SetText("Дпс рейда: " .. ns.Color("white", ns.Compact(r.exp))
-        .. ns.Color("grey", ", в худшем случае " .. ns.Compact(r.worst)))
-    L[2]:SetText("Хпс рейда: " .. ns.Color("white", ns.Compact(r.hps)))
+    L[1]:SetText(ns.T("Дпс рейда: ") .. ns.Color("white", ns.Compact(r.exp))
+        .. ns.Color("grey", ns.T(", в худшем случае ") .. ns.Compact(r.worst)))
+    L[2]:SetText(ns.T("Хпс рейда: ") .. ns.Color("white", ns.Compact(r.hps)))
     if r.ww > 0 then
-        L[3]:SetText("Закрывали " .. (BOSS_ACC[boss] or ns.BossName(boss)) .. ": " .. chanceText(r.kww > 0 and (r.kw / r.kww * 100) or 0)
-            .. ns.Color("grey", " своих рейдов"))
-        L[4]:SetText("Без вайпов за вечер: " .. chanceText(r.cw / r.ww * 100)
-            .. ns.Color("grey", " (весь рейд, не один босс)"))
+        L[3]:SetText(ns.T("Закрывали ") .. (ns.T(BOSS_ACC[boss]) or ns.BossName(boss)) .. ": " .. chanceText(r.kww > 0 and (r.kw / r.kww * 100) or 0)
+            .. ns.Color("grey", ns.T(" своих рейдов")))
+        L[4]:SetText(ns.T("Без вайпов за вечер: ") .. chanceText(r.cw / r.ww * 100)
+            .. ns.Color("grey", ns.T(" (весь рейд, не один босс)")))
     else
-        L[3]:SetText(ns.Color("grey", "Никто из состава не ходил в " .. ns.ModeFull(pick.mode)))
+        L[3]:SetText(ns.Color("grey", ns.T("Никто из состава не ходил в ") .. ns.ModeFull(pick.mode)))
         L[4]:SetText("")
     end
-    L[5]:SetText("по последним рейдам каждого, наведи — как считается")
+    L[5]:SetText(ns.T("по последним рейдам каждого, наведи — как считается"))
     local warn = {}
     if r.t < 2 then tinsert(warn, "танков " .. r.t .. " из 2") end
     if r.h < 5 then tinsert(warn, "хилов " .. r.h .. " из 5") end
@@ -288,7 +288,7 @@ local function renderPick()
                 b.boss, b.short = boss, short
                 b:SetIcon(ns.BossIcon(boss, pick.mode), ICON_CROP)
                 local text = (short == "icon" and "") or (short and ns.BossShort(boss)) or ns.BossName(boss)
-                ns.FitButton(b, text, short == "icon" and 8 or (short and 12 or 16))
+                ns.FitButton(b, ns.T(text), short == "icon" and 8 or (short and 12 or 16))
                 ns.SetButton(b, pick.boss == boss)
                 total = total + b:GetWidth() + 4
                 b:Show()
@@ -311,7 +311,7 @@ end
 local function refresh()
     if not panel or not panel:IsShown() then return end
     buildList()
-    panel.count:SetText("группы 1-5: " .. #roster .. " " .. ns.Plural(#roster, "игрок", "игрока", "игроков"))
+    panel.count:SetText(ns.T("группы 1-5: ") .. #roster .. " " .. ns.Plural(#roster, ns.T("игрок"), ns.T("игрока"), ns.T("игроков")))
     renderPick()
     updateRows()
     renderSummary()
@@ -382,15 +382,15 @@ local function rowTip(self)
     local st = self.stat
     if not st then return end
     local unit = st.role == "h" and " хпс" or " дпс"
-    local rows = { { "Роль", ROLE_NAME[st.role] or "ДД" } }
+    local rows = { { ns.T("Роль"), ns.T(ROLE_NAME[st.role] or "ДД") } }
     local src = st.avg and st or self.alt
     if src and src.avg then
-        tinsert(rows, { "Среднее", ns.Compact(src.avg) .. unit })
-        tinsert(rows, { "Минимум", ns.Compact(src.min) .. unit })
-        tinsert(rows, { "Рейдов в расчёте", src.n or 0 })
+        tinsert(rows, { ns.T("Среднее"), ns.Compact(src.avg) .. unit })
+        tinsert(rows, { ns.T("Минимум"), ns.Compact(src.min) .. unit })
+        tinsert(rows, { ns.T("Рейдов в расчёте"), src.n or 0 })
         if src.ilvl then
             local low = src.ilvlLow or src.ilvl
-            tinsert(rows, { "ilvl рейдов", low == src.ilvl and tostring(src.ilvl) or (low .. "-" .. src.ilvl) })
+            tinsert(rows, { ns.T("ilvl рейдов"), low == src.ilvl and tostring(src.ilvl) or (low .. "-" .. src.ilvl) })
         end
     end
     local foot
@@ -446,12 +446,12 @@ local function buildSummary()
     sum:SetBackdropColor(0, 0, 0, 0.4)
     sum:SetBackdropBorderColor(0.3, 0.26, 0.18, 1)
     sum:EnableMouse(true)
-    sum:SetScript("OnEnter", function(self) ns.TipTable(self, "ANCHOR_TOP", "Как считается", HOW) end)
+    sum:SetScript("OnEnter", function(self) ns.TipTable(self, "ANCHOR_TOP", ns.T("Как считается"), HOW) end)
     sum:SetScript("OnLeave", function() GameTooltip:Hide() end)
     local title = ns.Text(sum, 12)
     title:SetTextColor(1, 0.82, 0)
     title:SetPoint("TOPLEFT", 9, -5)
-    title:SetText("Прогноз на босса")
+    title:SetText(ns.T("Прогноз на босса"))
     sum.lines = {}
     local y = 21
     for i = 1, 6 do
@@ -477,7 +477,7 @@ local function build(parent)
     fixBoss()
     local title = ns.Text(panel, 15, "LEFT", "head")
     title:SetPoint("TOPLEFT", 0, 0)
-    title:SetText("Мой рейд")
+    title:SetText(ns.T("Мой рейд"))
     panel.count = ns.Text(panel, 12, "RIGHT")
     panel.count:SetTextColor(0.55, 0.57, 0.6)
     panel.count:SetPoint("TOPRIGHT", 0, -2)
@@ -495,15 +495,15 @@ local function build(parent)
     local hName = ns.Text(panel, 11)
     hName:SetTextColor(0.5, 0.52, 0.55)
     hName:SetPoint("TOPLEFT", 6, -(LIST_Y - 16))
-    hName:SetText("игрок, роль по его рейдам")
+    hName:SetText(ns.T("игрок, роль по его рейдам"))
     panel.hMin = ns.Text(panel, 11, "RIGHT")
     panel.hMin:SetTextColor(0.5, 0.52, 0.55)
     panel.hMin:SetWidth(70)
-    panel.hMin:SetText("минимум")
+    panel.hMin:SetText(ns.T("минимум"))
     panel.hAvg = ns.Text(panel, 11, "RIGHT")
     panel.hAvg:SetTextColor(0.5, 0.52, 0.55)
     panel.hAvg:SetWidth(90)
-    panel.hAvg:SetText("среднее, дпс/хпс")
+    panel.hAvg:SetText(ns.T("среднее, дпс/хпс"))
     lscroll = CreateFrame("ScrollFrame", "PlayerRaidsRaidList", panel, "FauxScrollFrameTemplate")
     lscroll:SetPoint("TOPLEFT", panel, "TOPLEFT", 0, -LIST_Y)
     lscroll:SetScript("OnVerticalScroll", function(self, offset)
@@ -610,7 +610,7 @@ local function buildFakeRoster()
     return #out
 end
 local function buildGuildRoster()
-    if not IsInGuild or not IsInGuild() then return nil, "вы не в гильдии" end
+    if not IsInGuild or not IsInGuild() then return nil, ns.T("вы не в гильдии") end
     local showOff = GetGuildRosterShowOffline and GetGuildRosterShowOffline()
     if SetGuildRosterShowOffline then SetGuildRosterShowOffline(true) end
     local total = GetNumGuildMembers(true) or 0
@@ -629,7 +629,7 @@ local function buildGuildRoster()
     if SetGuildRosterShowOffline and not showOff then SetGuildRosterShowOffline(false) end
     if total == 0 then
         if GuildRoster then GuildRoster() end
-        return nil, "список гильдии ещё не загружен, повторите через пару секунд"
+        return nil, ns.T("список гильдии ещё не загружен, повторите через пару секунд")
     end
     local need = { t = 2, h = 5, d = 18 }
     local out, got = {}, {}
@@ -640,25 +640,28 @@ local function buildGuildRoster()
         got[role] = math.min(#l, need[role])
         for i = 1, got[role] do tinsert(out, l[i]) end
     end
-    if #out == 0 then return nil, "в гильдии никто не проходил " .. ns.ModeFull(pick.mode) end
+    if #out == 0 then
+        if ns.ENGLISH then return nil, "No one in the guild has done " .. ns.ModeFull(pick.mode) end
+        return nil, ns.T("в гильдии никто не проходил ") .. ns.ModeFull(pick.mode)
+    end
     for i, m in ipairs(out) do m.subgroup = ((i - 1) % 5) + 1 end
     roster = out
     fakeOn = true
-    return #out, string.format("танки %d, хилы %d, ДД %d", got.t, got.h, got.d)
+    return #out, string.format(ns.T("танки %d, хилы %d, ДД %d"), got.t, got.h, got.d)
 end
 SLASH_PLAYERRAIDSFAKE1 = "/raidsfake"
 SlashCmdList["PLAYERRAIDSFAKE"] = function(msg)
     local q = string.match(msg or "", "^%s*(.-)%s*$")
     if q == "off" then
         if not fakeOn then
-            ns.Print("фейковый рейд и так выключен")
+            ns.Print(ns.T("фейковый рейд и так выключен"))
             return
         end
         fakeOn = false
         if ns.InRaid() then scanRoster() else roster = {} end
         refresh()
         for _, fn in ipairs(listeners) do fn() end
-        ns.Print("фейковый рейд выключен")
+        ns.Print(ns.T("фейковый рейд выключен"))
         return
     end
     if q == "guild" or q == "г" or q == "ги" then
@@ -669,11 +672,11 @@ SlashCmdList["PLAYERRAIDSFAKE"] = function(msg)
         end
         refresh()
         for _, fn in ipairs(listeners) do fn() end
-        ns.Print("рейд из гильдии, " .. ns.ModeFull(pick.mode) .. ": " .. info)
+        ns.Print((ns.ENGLISH and "Guild raid, " or ns.T("рейд из гильдии, ")) .. ns.ModeFull(pick.mode) .. ": " .. info)
         return
     end
     local n = buildFakeRoster()
     refresh()
     for _, fn in ipairs(listeners) do fn() end
-    ns.Print("фейковый рейд: собрано " .. n .. " " .. ns.Plural(n, "игрок", "игрока", "игроков"))
+    ns.Print(ns.T("фейковый рейд: собрано ") .. n .. " " .. ns.Plural(n, ns.T("игрок"), ns.T("игрока"), ns.T("игроков")))
 end

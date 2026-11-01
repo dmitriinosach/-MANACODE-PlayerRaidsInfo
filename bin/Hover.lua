@@ -35,21 +35,29 @@ local function openInWindow(name)
     end
     return false
 end
+local arm = CreateFrame("Frame")
+arm:Hide()
+local function hover(h)
+    hovered = h
+    arm.down = IsAltKeyDown()
+    arm:Show()
+end
 local function onLinkEnter(frame, link)
     local name = playerFromLink(link)
     if not name or name == "" then return end
-    hovered = { kind = "name", name = name, owner = frame }
+    hover({ kind = "name", name = name, owner = frame })
     if frozen or not IsAltKeyDown() or not ns.Opt("chat") then return end
     showFrozen(ns.InfoForName(name))
 end
 local function onLeave()
     hovered = nil
+    arm:Hide()
 end
 local function stillHovered()
     local owner = hovered and hovered.owner
     if not owner or not owner:IsVisible() then return false end
-    if GetMouseFocus then return GetMouseFocus() == owner end
-    return MouseIsOver and MouseIsOver(owner) and true or false
+    if not MouseIsOver then return true end
+    return MouseIsOver(owner) and true or false
 end
 local function guildName(button)
     local index = button.guildIndex
@@ -68,10 +76,28 @@ local function guildInfo(button)
     return info
 end
 local function onGuildEnter(self)
-    hovered = { kind = "guild", button = self, owner = self }
+    hover({ kind = "guild", button = self, owner = self })
     if frozen or not IsAltKeyDown() or not ns.Opt("guild") then return end
     showFrozen(guildInfo(self))
 end
+local function showHovered()
+    if frozen or not hovered then return false end
+    if not stillHovered() then
+        onLeave()
+        return false
+    end
+    if hovered.kind == "guild" then
+        if ns.Opt("guild") then showFrozen(guildInfo(hovered.button)) end
+    elseif ns.Opt("chat") then
+        showFrozen(ns.InfoForName(hovered.name))
+    end
+    return true
+end
+arm:SetScript("OnUpdate", function(self)
+    local down = IsAltKeyDown()
+    if down and not self.down then showHovered() end
+    self.down = down
+end)
 local function onGuildClick(self)
     if not IsAltKeyDown() then return end
     openInWindow((guildName(self)))
@@ -132,18 +158,25 @@ local function hookItemRef()
         return orig(link, text, button, chatFrame)
     end
 end
+local function hookChat(frame)
+    if not frame or not frame.HookScript or frame.prHooked then return end
+    frame.prHooked = true
+    frame:HookScript("OnHyperlinkEnter", onLinkEnter)
+    frame:HookScript("OnHyperlinkLeave", onLeave)
+end
+local function hookChats()
+    for i = 1, (NUM_CHAT_WINDOWS or 10) do hookChat(_G["ChatFrame" .. i]) end
+    if type(CHAT_FRAMES) == "table" then
+        for _, name in ipairs(CHAT_FRAMES) do hookChat(_G[name]) end
+    end
+end
 local events = CreateFrame("Frame")
 events:RegisterEvent("PLAYER_LOGIN")
 events:RegisterEvent("MODIFIER_STATE_CHANGED")
 events:SetScript("OnEvent", function(self, event, key, state)
     if event == "PLAYER_LOGIN" then
-        for i = 1, (NUM_CHAT_WINDOWS or 10) do
-            local frame = _G["ChatFrame" .. i]
-            if frame and frame.HookScript then
-                frame:HookScript("OnHyperlinkEnter", onLinkEnter)
-                frame:HookScript("OnHyperlinkLeave", onLeave)
-            end
-        end
+        hookChats()
+        if type(FCF_OpenTemporaryWindow) == "function" then hooksecurefunc("FCF_OpenTemporaryWindow", hookChats) end
         if hookGuildRows() == 0 and GuildFrame and GuildFrame.HookScript then
             GuildFrame:HookScript("OnShow", hookGuildRows)
         end
@@ -153,14 +186,9 @@ events:SetScript("OnEvent", function(self, event, key, state)
         return
     end
     if (key ~= "LALT" and key ~= "RALT") or state ~= 1 or frozen then return end
-    if hovered and not stillHovered() then hovered = nil end
     if hovered then
-        if hovered.kind == "guild" then
-            if ns.Opt("guild") then showFrozen(guildInfo(hovered.button)) end
-        elseif ns.Opt("chat") then
-            showFrozen(ns.InfoForName(hovered.name))
-        end
-    elseif GameTooltip:IsShown() and GameTooltip:GetUnit() then
-        showUnit()
+        arm.down = true
+        if showHovered() then return end
     end
+    if GameTooltip:IsShown() and GameTooltip:GetUnit() then showUnit() end
 end)

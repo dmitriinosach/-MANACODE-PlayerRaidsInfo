@@ -1,14 +1,17 @@
 ## Interface: 30300
-## Title: Manacode_PlayerRaidsInfo
-## Notes: Статистика рейдов игроков: ЦЛК, РС и ИВК 25 и 10, парсы, последние рейды. Alt + наведение на игрока, окно /raids
+## Title: |cff3399ff[MANACODE]|r Player Raids Info
+## Title-ruRU: |cff3399ff[MANACODE]|r Player Raids Info |cff808080— рейды игроков|r
+## Notes: Raid statistics for ICC, RS, and ToC, 25 and 10 player raids, parses, and recent raids. Alt + point to a player for their card; open the window with /raids.
 ## Notes-ruRU: Статистика рейдов игроков: ЦЛК, РС и ИВК 25 и 10, парсы, последние рейды. Alt + наведение на игрока, окно /raids
-## Author: dimondru
-## Version: 0.19.2
+## Author: Manacode
+## Version: 1.0.0
 ## X-DataFormat: 13
-## X-Date: 2026-10-12
+## X-Date: 2026-11-01
 ## SavedVariables: PlayerRaidsDB, PlayerRaidsNotes, PlayerRaidsGuilds
 ## OptionalDeps: GearScore
 
+libs\manacode\sizer.lua
+bin\Locale.lua
 bin\Data.stub.lua
 data\Players.lua
 data\s4.lua
@@ -140,4 +143,5 @@ bin\Card.lua
 bin\Hover.lua
 bin\Guide.lua
 bin\Link.lua
+bin\About.lua
 bin\Browser.lua

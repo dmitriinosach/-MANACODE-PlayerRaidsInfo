@@ -288,9 +288,9 @@ end
 local function render()
     local s = STEPS[step]
     ui.count:SetText(step .. " / " .. #STEPS)
-    ui.title:SetText(s.title)
-    ui.body:SetText(s.text)
-    ns.FitButton(ui.next, step < #STEPS and "Далее" or "Готово", 22)
+    ui.title:SetText(ns.T(s.title))
+    ui.body:SetText(ns.T(s.text))
+    ns.FitButton(ui.next, step < #STEPS and ns.T("Далее") or ns.T("Готово"), 22)
     if step > 1 then ui.back:Show() else ui.back:Hide() end
 end
 local function finish()

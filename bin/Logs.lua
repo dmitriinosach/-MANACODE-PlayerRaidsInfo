@@ -47,8 +47,8 @@ function ns.DataOK()
 end
 function ns.DataProblem()
     local st = ns.DataState()
-    if st == "other" then return "данные другого формата — обновите аддон и данные в ManacodeUpdate" end
-    if st == "none" then return "нет данных — скачайте их в ManacodeUpdate" end
+    if st == "other" then return ns.T("данные другого формата — обновите аддон и данные в ManacodeUpdate") end
+    if st == "none" then return ns.T("нет данных — скачайте их в ManacodeUpdate") end
     return nil
 end
 function ns.GM()
@@ -76,7 +76,7 @@ function ns.GMRows(id)
     return #hit > 0 and hit or nil
 end
 function ns.MissingText()
-    return "Не ходил в рейды или ходил до начала сбора рейд-логов (2023)"
+    return ns.T("Не ходил в рейды или ходил до начала сбора рейд-логов (2023)")
 end
 local function parseBest(s)
     if not s or s == "" then return nil end
@@ -488,6 +488,7 @@ end
 function ns.GameRename(id, rec)
     local own = ns.NameOf(id)
     if own and rec and rec.name and ns.Lower(own) ~= ns.Lower(rec.name) then
+        if ns.ENGLISH then return "In game: " .. own .. ", on site: " .. rec.name end
         return "в игре: " .. own .. ", на сайте: " .. rec.name
     end
     return nil
@@ -513,17 +514,25 @@ function ns.NameHistory(id, rec)
     if not rec then return lines end
     local own = ns.NameOf(id)
     if own and ns.Lower(own) ~= ns.Lower(rec.name) then
-        tinsert(lines, "сейчас в игре: " .. own .. " (с сайта: " .. rec.name .. ")")
+        if ns.ENGLISH then
+            tinsert(lines, "Current in game: " .. own .. " (site: " .. rec.name .. ")")
+        else
+            tinsert(lines, "сейчас в игре: " .. own .. " (с сайта: " .. rec.name .. ")")
+        end
     end
     local p = rec.prevInfo or {}
     if #p == 0 then return lines end
     local hex = ns.ClassHex(rec.class)
     local function grey(n) return ns.Color("grey", n) end
-    tinsert(lines, "после " .. ns.DayMonthYearFull(p[1].last) .. "  " .. grey(p[1].name) .. ns.ARROW .. "|cff" .. hex .. rec.name .. "|r")
+    if ns.ENGLISH then
+        tinsert(lines, "Changed on " .. ns.DayMonthYearFull(p[1].last) .. "  " .. grey(p[1].name) .. ns.ARROW .. "|cff" .. hex .. rec.name .. "|r")
+    else
+        tinsert(lines, "после " .. ns.DayMonthYearFull(p[1].last) .. "  " .. grey(p[1].name) .. ns.ARROW .. "|cff" .. hex .. rec.name .. "|r")
+    end
     for i = 1, #p - 1 do
         tinsert(lines, ns.DayMonthYearFull(p[i].first) .. "  " .. grey(p[i + 1].name) .. ns.ARROW .. grey(p[i].name))
     end
-    tinsert(lines, "с " .. ns.DayMonthYearFull(p[#p].first) .. "  " .. grey(p[#p].name))
+    tinsert(lines, (ns.ENGLISH and "Since " or "с ") .. ns.DayMonthYearFull(p[#p].first) .. "  " .. grey(p[#p].name))
     return lines
 end
 function ns.NameChain(id, rec)
@@ -532,7 +541,7 @@ function ns.NameChain(id, rec)
     for i = #rec.prev, 1, -1 do tinsert(chain, rec.prev[i]) end
     tinsert(chain, rec.name)
     local own = ns.NameOf(id)
-    if own and ns.Lower(own) ~= ns.Lower(rec.name) then tinsert(chain, own .. " (в игре)") end
+    if own and ns.Lower(own) ~= ns.Lower(rec.name) then tinsert(chain, own .. (ns.ENGLISH and " (in game)" or " (в игре)")) end
     if #chain < 2 then return nil end
     return table.concat(chain, ns.ARROW)
 end
@@ -566,6 +575,23 @@ end
 function ns.SeasonEmptyText(sn, what)
     what = what or "рейдов"
     local e = circleOf(sn)
+    if ns.ENGLISH then
+        what = what == "рейдов" and "raids" or (what == "рейдов в этой сложности" and "raids in this difficulty") or what
+        local function enDate(raw)
+            local d, m, y = string.match(raw or "", "^(%d%d)%.(%d%d)%.(%d%d%d%d)$")
+            return d and (m .. "/" .. d .. "/" .. y) or raw
+        end
+        if sn == ns.CurrentSeason() then
+            if e then return "Logs for the current season start on " .. enDate(e.from) .. ". This character has no " .. what .. " from that period." end
+            return "This character has no " .. what .. " in the current season."
+        end
+        if e then
+            local from, to = string.match(e.dates or "", "^(%d%d%.%d%d%.%d%d%d%d) %- (%d%d%.%d%d%.%d%d%d%d)$")
+            local period = from and (enDate(from) .. " - " .. enDate(to)) or ((string.sub(e.dates or "", 1, 3) == "с " and "since " or "") .. enDate(string.gsub(e.dates or "", "^с ", "")))
+            return "This character has no " .. what .. " in season " .. sn .. " (" .. period .. ")."
+        end
+        return "This character has no " .. what .. " in season " .. sn .. "."
+    end
     if sn == ns.CurrentSeason() then
         if e then return "Логи текущего сезона собираются с " .. e.from .. " — за это время у персонажа нет " .. what end
         return "В текущем сезоне у персонажа нет " .. what
@@ -598,11 +624,15 @@ function ns.HadSeason(rec, sn)
     return false
 end
 function ns.SeasonMessage(sn, why)
-    if why == "notdownloaded" then return "Сезон " .. sn .. " не скачан — отметьте его в ManacodeUpdate" end
+    if why == "notdownloaded" then return ns.T("Сезон ") .. sn .. ns.T(" не скачан — отметьте его в ManacodeUpdate") end
     if why == "empty" then return ns.SeasonEmptyText(sn) end
     return nil
 end
 function ns.ModeMessage(sn, mode)
+    if ns.ENGLISH then
+        return "Raids in " .. ns.ModeFull(mode) .. (type(sn) == "number" and (" from season " .. sn) or "") ..
+            " are not downloaded. Select them in ManacodeUpdate, click Download selected, then type /reload."
+    end
     local what = "Рейды «" .. ns.ModeFull(mode) .. "»" .. (type(sn) == "number" and (" сезона " .. sn) or "")
     return what .. " не скачаны — отметьте их в ManacodeUpdate, нажмите «Скачать выбранное» и наберите /reload"
 end
@@ -893,6 +923,12 @@ function ns.StatScore(st)
 end
 function ns.BadgeText(b)
     local heal = b.role == "h"
+    if ns.ENGLISH then
+        if b.family == "top" then return "Top " .. b.tier .. "% spec" .. (heal and " healing" or " DPS") end
+        if b.family == "bracket" then return "Better than " .. b.tier .. "% at this item level" .. (heal and " (healing)" or "") end
+        local n = floor((b.value or 0) + 0.5)
+        return (heal and "Healer parse " or "Parse ") .. b.tier .. (n > 1 and (" x" .. n) or "")
+    end
     if b.family == "top" then return "Топ-" .. b.tier .. "% спека" .. (heal and " по хилу" or "") end
     if b.family == "bracket" then return "Лучше " .. b.tier .. "% своего илвла" .. (heal and " по хилу" or "") end
     local n = floor((b.value or 0) + 0.5)
@@ -900,6 +936,21 @@ function ns.BadgeText(b)
 end
 function ns.BadgeLine(b)
     local unit = b.role == "h" and "хпс" or "дпс"
+    if ns.ENGLISH then
+        unit = b.role == "h" and "HPS" or "DPS"
+        if b.family == "top" then
+            local place, of = strmatch(b.label or "", "#(%d+)/(%d+)")
+            local text = "Top " .. ns.Pct(b.value) .. "% of this spec by best seasonal " .. unit
+            if place then text = "#" .. ns.Thousands(tonumber(place)) .. " of " .. ns.Thousands(tonumber(of)) .. ", top " .. ns.Pct(b.value) .. "% by best " .. unit .. " this season" end
+            return text
+        end
+        if b.family == "bracket" then
+            local of = strmatch(b.label or "", "(%d+)")
+            return "Average " .. unit .. " is higher than " .. ns.Pct(b.value) .. "% of players at the same item level" ..
+                (of and (" (of " .. ns.Thousands(tonumber(of)) .. ")") or "")
+        end
+        return "Kills with parse " .. b.tier .. (b.role == "h" and " as healer" or "") .. " this season: " .. floor((b.value or 0) + 0.5)
+    end
     if b.family == "top" then
         local place, of = strmatch(b.label or "", "#(%d+)/(%d+)")
         local text = "Топ " .. ns.Pct(b.value) .. " игроков спека по лучшему " .. unit .. " сезона"
@@ -934,19 +985,23 @@ function ns.TopBadges(list, role)
 end
 function ns.StatTop(st)
     if not st or not st.top then return nil end
-    local text = "топ " .. ns.Pct(st.top)
-    if st.place and st.topOf then text = "#" .. ns.Thousands(st.place) .. " из " .. ns.Thousands(st.topOf) .. ", " .. text end
+    local text = (ns.ENGLISH and "Top " or "топ ") .. ns.Pct(st.top)
+    if st.place and st.topOf then text = "#" .. ns.Thousands(st.place) .. (ns.ENGLISH and " of " or " из ") .. ns.Thousands(st.topOf) .. ", " .. text end
     return text
 end
 function ns.StatIlvl(st)
     if not st or not st.L then return nil end
     local w = st.w or 0
+    if ns.ENGLISH then
+        if w == 0 then return "Item level " .. st.L end
+        return "Item level " .. (st.L - w) .. "-" .. (st.L + w)
+    end
     if w == 0 then return "Илвл " .. st.L end
     return "Илвл " .. (st.L - w) .. "-" .. (st.L + w)
 end
 function ns.StatBracket(st)
     if not st or not st.better then return nil end
-    local text = "лучше " .. floor(st.better) .. "%"
-    if st.of and st.of > 0 then text = text .. " из " .. ns.Thousands(st.of) end
+    local text = (ns.ENGLISH and "Better than " or "лучше ") .. floor(st.better) .. "%"
+    if st.of and st.of > 0 then text = text .. (ns.ENGLISH and " of " or " из ") .. ns.Thousands(st.of) end
     return text
 end

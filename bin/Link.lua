@@ -66,7 +66,7 @@ timer:SetScript("OnUpdate", function(self)
     local box = verBox()
     if box.told == newest then return end
     box.told = newest
-    ns.Print("вышла версия " .. newest .. ", у вас " .. myVersion() .. ". Обновить — в ManacodeUpdate")
+    ns.Print(ns.T("вышла версия ") .. newest .. ns.T(", у вас ") .. myVersion() .. ns.T(". Обновить — в ManacodeUpdate"))
 end)
 local function adopt(ver)
     newest = ver
@@ -162,8 +162,8 @@ local function heard(from, ver, baked, complete)
         if not mineT or theirs - mineT > DATA_AHEAD then
             toldData = true
             local where = mineT and ("у вас от " .. bakedShort(mine)) or "у вас выгрузки нет"
-            ns.Print("у " .. from .. " выгрузка от " .. bakedShort(baked) .. ", " .. where
-                .. " — обновите данные в ManacodeUpdate и наберите /reload")
+            ns.Print(ns.T("у ") .. from .. ns.T(" выгрузка от ") .. bakedShort(baked) .. ", " .. where
+                .. ns.T(" — обновите данные в ManacodeUpdate и наберите /reload"))
         end
     end
 end
@@ -229,7 +229,7 @@ SlashCmdList["PLAYERRAIDSVER"] = function(msg)
         local box = verBox()
         box.seen, box.told = nil, nil
         for _, fn in ipairs(verListeners) do pcall(fn, nil) end
-        ns.Print("проверка версии сброшена, /reload уберёт надпись")
+        ns.Print(ns.T("проверка версии сброшена, /reload уберёт надпись"))
         return
     end
     if not parseVersion(v) then

@@ -119,8 +119,8 @@ function ns.TitleOf(id)
 end
 function ns.GuildText(id)
     local e = ns.GuildOf(id)
-    if not e or e.cur == nil then return "гильдия неизвестна", false end
-    if e.cur == false then return "без гильдии", true end
+    if not e or e.cur == nil then return ns.T("гильдия неизвестна"), false end
+    if e.cur == false then return ns.T("без гильдии"), true end
     return "<" .. e.cur .. ">", true
 end
 function ns.GuildLines(id)
