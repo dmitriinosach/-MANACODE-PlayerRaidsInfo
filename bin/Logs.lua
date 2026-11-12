@@ -83,6 +83,32 @@ local function parseBest(s)
     local p, boss, mode, date, value, flag = strsplit(",", s)
     return { parse = tonumber(p), boss = boss, mode = mode, date = date, value = tonumber(value), unbuff = flag == "u" }
 end
+local BEST_MAIN, BEST_MORE = "icc25h", { "icc25n", "rs25h" }
+ns.BEST_MAIN, ns.BEST_MORE = BEST_MAIN, BEST_MORE
+local function bestKey(b)
+    return b and b.parse
+end
+ns.BestParse = bestKey
+local function betterBest(a, b)
+    local kb = bestKey(b)
+    if not kb then return a end
+    local ka = bestKey(a)
+    if not ka or kb > ka or (kb == ka and (b.value or 0) > (a.value or 0)) then return b end
+    return a
+end
+local function putBest(by, role, b)
+    if not (b and b.mode and bestKey(b)) then return end
+    local m = by[b.mode]
+    if not m then
+        m = {}
+        by[b.mode] = m
+    end
+    m[role] = betterBest(m[role], b)
+end
+local function mainBest(s)
+    local m = s.best[BEST_MAIN] or EMPTY
+    s.bestD, s.bestH, s.bestT = m.d, m.h, m.t
+end
 local function parseCell(c, ilvl)
     if not c or c == "" then return false end
     local role, v, p, i, flag = strmatch(c, "^([dht])(%d*):?(%d*):?(%d*):?(%a*)$")
@@ -206,11 +232,16 @@ local function lazyModes(fill)
     end })
 end
 local function parseSeason(raw, sn, id)
-    local gs, last, spec, raids, bd, bh, bt, rspec, stat, badges, statH = strsplit(";", raw)
+    local gs, last, spec, raids, bd, bh, bt, rspec, stat, badges, statH, more = strsplit(";", raw)
     local s = {
         season = sn, id = id, gs = tonumber(gs), last = last, spec = spec ~= "" and spec or nil,
-        raids = {}, flagged = {}, bestD = parseBest(bd), bestH = parseBest(bh), bestT = parseBest(bt),
+        raids = {}, flagged = {}, best = {},
     }
+    putBest(s.best, "d", parseBest(bd))
+    putBest(s.best, "h", parseBest(bh))
+    putBest(s.best, "t", parseBest(bt))
+    for role, b in gmatch(more or "", "([dht]),([^/]+)") do putBest(s.best, role, parseBest(b)) end
+    mainBest(s)
     for _, mode in ipairs(ns.MODES) do s.raids[mode] = 0 end
     for mode, n, f in gmatch(raids or "", "(%w+)%.(%d+)%.?(%d*)") do
         s.raids[mode] = tonumber(n) or 0
@@ -688,20 +719,9 @@ function ns.HeroDate(rec)
     if not d or not string.match(d, "^%d%d%d%d%d%d$") then return nil end
     return d
 end
-local function bestKey(b)
-    return b and b.parse
-end
-ns.BestParse = bestKey
-local function betterBest(a, b)
-    local kb = bestKey(b)
-    if not kb then return a end
-    local ka = bestKey(a)
-    if not ka or kb > ka or (kb == ka and (b.value or 0) > (a.value or 0)) then return b end
-    return a
-end
 function ns.AllSeasons(rec, list)
     if not rec then return nil end
-    local all = { season = "all", raids = {}, flagged = {}, count = 0, blocks = {} }
+    local all = { season = "all", raids = {}, flagged = {}, count = 0, blocks = {}, best = {} }
     for _, mode in ipairs(ns.MODES) do all.raids[mode] = 0 end
     for _, sn in ipairs(list or EMPTY) do
         local s = ns.SeasonBlock(rec, sn)
@@ -719,12 +739,13 @@ function ns.AllSeasons(rec, list)
             if not all.stat and s.stat then all.stat, all.statSeason = s.stat, sn end
             if not all.statH and s.statH then all.statH, all.statHSeason = s.statH, sn end
             if not all.badges and s.badges and #s.badges > 0 then all.badges, all.badgeSeason = s.badges, sn end
-            all.bestD = betterBest(all.bestD, s.bestD)
-            all.bestH = betterBest(all.bestH, s.bestH)
-            all.bestT = betterBest(all.bestT, s.bestT)
+            for _, m in pairs(s.best) do
+                for role, b in pairs(m) do putBest(all.best, role, b) end
+            end
         end
     end
     if all.count == 0 then return nil end
+    mainBest(all)
     all.roleSpecs = all.roleSpecs or {}
     all.byMode = lazyModes(function(mode)
         local out = {}

@@ -24,7 +24,7 @@ local BADGE_H = 18
 local RT = {
     gap = 4, max = 11, colMax = 160, zoneGap = 12, killGap = 12,
     unbuffRGB = { 1, 0.2, 0.15 }, unbuffHex = "ff3326",
-    bestFrom = "Лучший парс берётся из ЦЛК 25 гер, ЦЛК 25 об и РС 25 гер",
+    bestFrom = "На плитке — лучший парс ЦЛК 25 гер, вместе с анбафом",
     roleWord = { d = "Урон", h = "Исцеление", t = "Танк, урон" },
     bossDefault = {
         icc = { saurfang = true, putricide = true, sindragosa = true, lichking = true },
@@ -435,8 +435,8 @@ local function tileWash(t, r, g, b)
     t.accent:SetVertexColor(r, g, b, 1)
     t.accent:Show()
 end
-local function tileFill(t, b, role)
-    t.best, t.role = b, role
+local function tileFill(t, b, role, more)
+    t.best, t.role, t.more = b, role, more
     local p = ns.BestParse(b)
     if p then
         t.big:SetText("|cff" .. ns.ParseHex(p) .. p .. "|r")
@@ -452,6 +452,7 @@ local function tileFill(t, b, role)
     else
         t.big:SetText(ns.Color("none", "—"))
         t.l1 = role == "h" and "не хилил" or "не дамажил"
+        if more and #more > 0 then t.l1 = ns.T("нет парсов") .. ", " .. ns.ModeShort(ns.BEST_MAIN) end
         t.l2 = seasonCaption()
         t.accent:Hide()
         t.wash:Hide()
@@ -1491,19 +1492,38 @@ local function tileTip(self)
         return
     end
     local b = self.best
-    if not b then
-        ns.TipTable(self, "ANCHOR_TOP", self.kText or "", { ns.T(RT.bestFrom) }, seasonCaption())
-        return
+    local rows = {}
+    if b then
+        tinsert(rows, { ns.T("Босс"), ns.BossName(b.boss) })
+        tinsert(rows, { ns.T("Сложность"), ns.ModeFull(b.mode) })
+        if b.unbuff then tinsert(rows, { ns.T("Анбаф"), ns.Color(RT.unbuffHex, ns.T("да")) }) end
+        tinsert(rows, { ns.T("Дата"), ns.DayMonthYearFull(b.date) })
+        if b.value then
+            tinsert(rows, { self.role == "h" and ns.T("Исцеление") or ns.T("Урон"), ns.Compact(b.value) .. (self.role == "h" and ns.T(" хпс") or ns.T(" дпс")) })
+        end
     end
-    local rows = { { ns.T("Босс"), ns.BossName(b.boss) } }
-    tinsert(rows, { ns.T("Сложность"), ns.ModeFull(b.mode) })
-    if b.unbuff then tinsert(rows, { ns.T("Анбаф"), ns.Color(RT.unbuffHex, ns.T("да")) }) end
-    tinsert(rows, { ns.T("Дата"), ns.DayMonthYearFull(b.date) })
-    if b.value then
-        tinsert(rows, { self.role == "h" and ns.T("Исцеление") or ns.T("Урон"), ns.Compact(b.value) .. (self.role == "h" and ns.T(" хпс") or ns.T(" дпс")) })
+    if self.more and #self.more > 0 then
+        if #rows > 0 then tinsert(rows, " ") end
+        for _, it in ipairs(self.more) do tinsert(rows, { ns.ModeFull(it.mode), RT.bestLine(it.b) }) end
     end
-    tinsert(rows, RT.bestFrom)
+    tinsert(rows, ns.T(RT.bestFrom))
     ns.TipTable(self, "ANCHOR_TOP", self.kText or "", rows, seasonCaption())
+end
+function RT.bestLine(b)
+    local out = "|cff" .. ns.ParseHex(b.parse) .. b.parse .. "|r " .. ns.BossName(b.boss)
+    if b.unbuff then out = out .. ", " .. ns.Color(RT.unbuffHex, ns.T("анбаф")) end
+    if b.date then out = out .. ", " .. ns.DayMonthYear(b.date) end
+    return out
+end
+function RT.moreBest(s, role)
+    local out = {}
+    local by = s and s.best
+    if not by then return out end
+    for _, mode in ipairs(ns.BEST_MORE) do
+        local b = by[mode] and by[mode][role]
+        if ns.BestParse(b) then tinsert(out, { mode = mode, b = b }) end
+    end
+    return out
 end
 function RT.modeDownloaded(mode)
     if state.season == ALL then
@@ -1521,8 +1541,9 @@ local function renderTiles(rec, s)
     local can = ns.ClassRoles(rec and rec.class)
     for i = 1, 3 do
         local t = right.tiles[i]
-        if can[roles[i]] and ns.BestParse(best[i]) then
-            tileFill(t, best[i], roles[i])
+        local more = RT.moreBest(s, roles[i])
+        if can[roles[i]] and (ns.BestParse(best[i]) or #more > 0) then
+            tileFill(t, best[i], roles[i], more)
             t:Show()
             any = true
         else

@@ -4,9 +4,9 @@
 ## Notes: Raid statistics for ICC, RS, and ToC, 25 and 10 player raids, parses, and recent raids. Alt + point to a player for their card; open the window with /raids.
 ## Notes-ruRU: Статистика рейдов игроков: ЦЛК, РС и ИВК 25 и 10, парсы, последние рейды. Alt + наведение на игрока, окно /raids
 ## Author: Manacode
-## Version: 1.0.0
+## Version: 1.1.0
 ## X-DataFormat: 13
-## X-Date: 2026-11-01
+## X-Date: 2026-11-12
 ## SavedVariables: PlayerRaidsDB, PlayerRaidsNotes, PlayerRaidsGuilds
 ## OptionalDeps: GearScore
 
