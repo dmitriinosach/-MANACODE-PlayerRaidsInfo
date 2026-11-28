@@ -58,9 +58,25 @@ function ns.GM()
 end
 local gmRows = {}
 ns.GM_LISTS = { ["Банки"] = true, ["Сумки"] = true, ["Банк"] = true }
+local function openGM(id)
+    local r = root()
+    local o = r and r.gm
+    if type(o) ~= "table" or tonumber(o.v) ~= 1 or type(o.guilds) ~= "table" then return nil end
+    local me = UnitName("player")
+    if not me then return nil end
+    for _, g in pairs(o.guilds) do
+        if type(g) == "table" and type(g.gm) == "table" and g.gm[me] == true and type(g.players) == "table" then
+            local raw = g.players[id]
+            if type(raw) == "string" and raw ~= "" then return raw end
+        end
+    end
+    return nil
+end
 function ns.GMRows(id)
-    local g = id and ns.GM()
+    if not id then return nil end
+    local g = ns.GM()
     local raw = g and g.players[id]
+    if type(raw) ~= "string" or raw == "" then raw = openGM(id) end
     if type(raw) ~= "string" or raw == "" then return nil end
     local hit = gmRows[id]
     if hit == nil then
